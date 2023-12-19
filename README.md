@@ -12,10 +12,10 @@ If the installation or execution of **AutoGPTQ** fails, please follow this [work
 
 #### Genrating Embedding Database
 ```
-c
+python3 -m embeddings.embedding_database --dir_path ~/ --file_types pdf --persist_directory pdf_db
 ```
 
 #### Demo Appicatiion
 1. 'pip3 install dash dash-bootstrap-components'
-2. 
+2. `python3 -m app.chat_app --persist_directory pdf_dbpdf_db`
 
