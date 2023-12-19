@@ -1,3 +1,5 @@
+wrapt==1.14.0 # This version must correspond to astroid version
+astroid==2.12.2
 torch 
 torchvision
 torchaudio
@@ -7,7 +9,7 @@ sentence_transformers
 langchain==0.0.348
 llama-cpp-python
 chromadb==0.4.18
-auto-gptq
+# auto-gptq # Requires CUDA
 huggingface
 huggingface_hub
 unstructured==0.6.7
