@@ -16,6 +16,6 @@ python3 -m embeddings.embedding_database --dir_path ~/ --file_types pdf --persis
 ```
 
 #### Demo Appicatiion
-1. 'pip3 install dash dash-bootstrap-components'
+1. `pip3 install dash dash-bootstrap-components`
 2. `python3 -m app.chat_app --persist_directory pdf_dbpdf_db`
 
