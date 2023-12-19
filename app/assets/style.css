@@ -1,0 +1,132 @@
+body {
+    background-color: #121212;  /* Updated dark background */
+    color: #E4E4E7;  /* Soft white text color for contrast */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;  /* Modern font */
+}
+
+/* Custom Image for Title */
+.title-image {
+    height: 120px;
+    width: 120px;
+}
+
+/* Style for the Title Span */
+.title-span {
+    margin-left: 20px;
+    color: #E4E4E7;
+}
+
+/* Custom Image for the Send Button */
+.ask-button-img {
+    height: 64px;
+}
+
+/* Style for the Message Input */
+.message-input {
+    width: 100%;
+    height: 100px;
+    border: 5px solid #3F3F46;
+    border-radius: 10px;
+    background-color: #2D2D2D;
+    color: #E4E4E7;
+}
+
+/* Style for User and System Icons */
+.user-icon, .system-icon {
+    height: 32px;
+    width: 32px;
+    vertical-align: middle;
+    margin-right: 5px;
+}
+
+/* Container Style */
+.container-style {
+    max-width: 80%;
+    background-color: #121212;
+}
+
+.chat-icon {
+    height: 32px;
+    width: 32px;
+    vertical-align: middle;
+    margin-right: 5px;
+}
+
+.user-bubble .chat-icon {
+    float: left;
+}
+
+.system-bubble .chat-icon {
+    float: left;
+}
+
+.chat-box {
+    background-color: #1F1F1F;  /* Slightly lighter dark background */
+    color: #D1D5DB;  /* Light grey text for better readability */
+    border: 1px solid #3F3F46;  /* Subtle border color */
+    height: 400px;
+    overflow-y: scroll;
+    padding: 10px;
+}
+
+.chat-bubble {
+    border-radius: 15px;  /* Modern rounded corners */
+    padding: 10px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);  /* Soft shadow for depth */
+}
+
+.user-bubble {
+    background-color: #2D2D2D;  /* Dark grey for user messages */
+    color: #E4E4E7;  /* Soft white for text */
+    margin-left: 2%;
+    width: 95%;
+    text-align: left;  /* Text alignment */
+}
+
+.system-bubble {
+    background-color: #4B5563;  /* Medium grey for system messages */
+    color: #F3F4F6;  /* Slightly off-white for text */
+    margin-left: 2%;
+    width: 95%;
+    text-align: left;  /* Text alignment */
+}
+
+.chat-message {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.user-message {
+    text-align: left;
+}
+
+.system-message {
+    text-align: left;
+}
+
+.system-error-message {
+    text-align: left;
+    color: #f65757;
+    font-style: italic;
+}
+
+.chat-top-hr {
+    height: 2px;
+    background-color: #6366F1;  /* Vibrant blue for a modern touch */
+    border: none;
+}
+
+.chat-bottom-hr {
+    height: 2px;
+    background-color: #EF4444;  /* Bright red for contrast */
+    border: none;
+}
+
+.custom-footer-style {
+    text-align: left;
+    color: #222222;  
+    margin-top: 50px;  
+    margin-left: 20px;
+}
