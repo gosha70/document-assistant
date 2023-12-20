@@ -1,6 +1,5 @@
 import argparse
 import logging
-from collections import defaultdict
 from langchain.vectorstores import Chroma
 
 from .document_loader import load_documents
@@ -9,7 +8,7 @@ from embeddings.embeddings_constants import CHROMA_SETTINGS
 
 from models.model_info import ModelInfo
 
-from .document_loader import FileLoaderQuery, FileType
+from .document_loader import get_FileLoaderQuery
 
 """
 Creates a (Chroma) embedding database which stores processed unstructured document splits.
@@ -106,22 +105,7 @@ if __name__ == "__main__":
 
     logging.info(f"Creating the embedding database with the arguments: {args}")
 
-    # Create a mapping from file type to patterns
-    pattern_mapping = defaultdict(list)
-    for pattern in args.file_patterns:
-        file_type, file_pattern = pattern.split(':', 1)
-        pattern_mapping[file_type].append(file_pattern)
-
-    # Create an instance of FileTypePatterns and add file types and patterns
-    file_loader_query = FileLoaderQuery()
-       
-    for file_type_name in args.file_types: 
-        file_type = FileType.get_file_type(file_type_name)
-        if file_type is not None:
-            patterns = pattern_mapping.get(file_type, ['**/*'])  # Default pattern if not specified      
-            file_loader_query.add_file_type(file_type, set(patterns))
-        else:
-            logging.error(f"Unsupported file type: {file_type_name}")
+    file_loader_query = get_FileLoaderQuery(args.file_types, args.file_patterns)
 
     # Call the create_vector_store function
     docs_db = create_vector_store(args.dir_path, file_loader_query, args.persist_directory, args.model_name)

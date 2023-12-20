@@ -22,6 +22,11 @@ DEFAULT_MODEL_NAME = "hkunlp/instructor-large"
 DEFAULT_MODEL_ID = "TheBloke/Llama-2-7b-Chat-GGUF"
 DEFAULT_MODEL_BASENAME = "llama-2-7b-chat.Q4_K_M.gguf"
 
+MISTRAL_SMALL_MODEL_ID = "mistralai/Mistral-7B-Instruct-v0.2"
+MISTRAL_SMALL_MODEL_BASENAME = "mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf"
+MISTRAL_LARGE_MODEL_ID = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+MISTRAL_LARGE_MODEL_BASENAME = "mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf"
+
 # Device Type
 DEVICE_TYPE_MPS = "mps"
 DEVICE_TYPE_CUDA = "cuda"

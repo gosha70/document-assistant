@@ -1,7 +1,12 @@
 import os
+import argparse
 import logging
+import datetime
+import json
+from collections import defaultdict
 from enum import Enum
 from typing import List
+from langchain_core.documents import Document
 from langchain.document_loaders.generic import GenericLoader
 from langchain.document_loaders.parsers import LanguageParser
 from langchain.text_splitter import (
@@ -102,7 +107,7 @@ Parameters:
 Returns:
 - (List[str]): unstructured document splits
 """ 
-def load_and_split_pdf(dir_path) -> List[str]:
+def load_and_split_pdf(dir_path) -> List[Document]:
     split_docs = []
     files = find_files(dir_path, '.pdf')
     for file_path in files:
@@ -124,9 +129,9 @@ Parameters:
 - file_pattern (str): The optional pattern for a file name
 
 Returns:
-- (List[str]): unstructured document splits
+- (List[Document]): unstructured document splits
 """
-def load_and_split(dir_path, text_splitter, file_type, file_pattern = None) -> List[str]:
+def load_and_split(dir_path, text_splitter, file_type, file_pattern = None) -> List[Document]:
 
     file_name = file_pattern if file_pattern is not None else "**/*"
 
@@ -176,8 +181,10 @@ Parameters:
 
 Returns:
 - (List[str]): unstructured document splits
+
+See: https://api.python.langchain.com/en/v0.0.345/documents/langchain_core.documents.base.Document.html
 """
-def load_documents(dir_path, file_loader_query) -> List[str]:
+def load_documents(dir_path, file_loader_query) -> List[Document]:
     try:
         split_docs = []
         # Iterate over the file types and their patterns
@@ -202,5 +209,88 @@ def load_documents(dir_path, file_loader_query) -> List[str]:
     except Exception as error:
         logging.error(f"Failed to process documents with extensions '{file_loader_query}' found in the path '{dir_path}': {str(error)}", exc_info=True)
 
-        return None 
+        return None
+
+"""
+Saves each split document as a separate file in the specified output directory.
+If output_dir is None, creates a new directory in the current directory.
+
+Parameters:
+- split_docs (List[Document]): List of split document objects
+- output_dir (str): The directory where the split documents will be saved. Defaults to None.
+
+Returns: the directory where doocuments are saved
+"""
+def save_documents_to_disk(split_docs, output_dir=None):  
+    if output_dir is None:
+        # Create a new directory with a timestamp
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_dir = os.path.join(os.getcwd(), f"split_docs_{timestamp}")
+     
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    for i, doc in enumerate(split_docs):
+        doc_json = doc.to_json()  # Convert Document object to Json
+        with open(os.path.join(output_dir, f"doc_split_{i}.json"), "w", encoding="utf-8") as file:
+            json.dump(doc_json, file, indent=4)
+
+    return output_dir        
+    
+    
+def get_FileLoaderQuery(file_types, file_patterns) -> FileLoaderQuery:
+    # Create a mapping from file type to patterns
+    pattern_mapping = defaultdict(list)
+    for pattern in file_patterns:
+        file_type, file_pattern = pattern.split(':', 1)
+        pattern_mapping[file_type].append(file_pattern)
+
+    # Create an instance of FileTypePatterns and add file types and patterns
+    file_loader_query = FileLoaderQuery()
+       
+    for file_type_name in file_types: 
+        file_type = FileType.get_file_type(file_type_name)
+        if file_type is not None:
+            patterns = pattern_mapping.get(file_type, ['**/*'])  # Default pattern if not specified      
+            file_loader_query.add_file_type(file_type, set(patterns))
+        else:
+            logging.error(f"Unsupported file type: {file_type_name}")  
+
+    return file_loader_query         
+    
+"""
+Main function to load documents, split them, and save the splits to disk.
+"""
+def main():
+    # Set the logging level to INFO
+    logging.basicConfig(level=logging.INFO)
+
+    # Create the parser
+    parser = argparse.ArgumentParser(description="Creating the embedding database.")
+
+    # Add the arguments
+    parser.add_argument('--dir_path', type=str, help='Root directory where to look for documents.', default=".")
+    parser.add_argument('--file_types', type=str, nargs='+', help='List of file extensions without the do: md; java; xml; html; pdf')
+    parser.add_argument('--file_patterns', nargs='+', help='Name patterns for each file type; for example: --file_patterns "java:**/*Function* html:**/*"', default=[])   
+    parser.add_argument('--persist_directory', type=str, help='(Optional) The path to the directory where unstructured document splits are saved.', default=None)
+  
+    # Parse the arguments
+    args = parser.parse_args()
+
+    logging.info(f"Searching and processing documents with the arguments: {args}")
+
+    file_loader_query = get_FileLoaderQuery(args.file_types, args.file_patterns)
+
+    # Load and split documents
+    split_docs = load_documents(args.dir_path, file_loader_query)
+
+    if split_docs is not None:
+        # Save split documents to disk
+        doc_dir = save_documents_to_disk(split_docs, args.persist_directory)
+        logging.info(f"{len(split_docs)} documet chunks are saved in {doc_dir}.")
+    else:
+        logging.error("No documents were loaded or split.")
+
+if __name__ == "__main__":
+    main() 
 

@@ -1,5 +1,6 @@
 import argparse
 import logging
+import threading
 import json
 import dash
 from dash import html, dcc, Input, Output, State
@@ -17,12 +18,12 @@ with open('app/app_config.json', 'r') as file:
 
 verbose = False
 qa_service = None
+is_in_progress = False
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 SYSTEM_ERROR = "I apologize, but I'm unable to provide a specific answer to your question based on the information currently available to me.\nMy ability to respond accurately depends on a variety of factors, including the scope of my training data and the specific details of your query.\nIf you have any other questions or need assistance with a different topic, please feel free to ask, and I'll do my best to help."
  
-
 # This layout closely follows the structure of popular chat applications
 app.layout = dbc.Container([
         html.H1([    
@@ -34,7 +35,7 @@ app.layout = dbc.Container([
         
         dbc.Row(
             dbc.Col(
-                html.Div(id='chat-box', className='chat-box', style={'display': 'none'}),
+                html.Div(id='chat-box-id', className='chat-box', style={'display': 'none'}),
                 width=12,
             ),
             className="mb-2"
@@ -46,7 +47,7 @@ app.layout = dbc.Container([
             [
                 dbc.Col(
                     dcc.Textarea(
-                        id='message-input', 
+                        id='message-input-id', 
                         placeholder=app_config["chat_ask_placeholder"], 
                         className='message-input'
                     ),
@@ -55,16 +56,16 @@ app.layout = dbc.Container([
                 dbc.Col(
                     dbc.Button(
                         html.Img(src=app_config["ask_button"], className='ask-button-img'), 
-                        id='send-button', 
-                        n_clicks=0, 
-                        className="mb-2",
-                        style={'background-color': 'transparent', 'border': 'none'}
+                        id='ask-button-id', 
+                        n_clicks=0,
+                        className="mb-2 ask-button", 
+                        disabled=False
                     ),
                     width=2,
                 )
             ]
         ),
-
+        
         html.P(
             app_config["copyright"],
             className="custom-footer-style"
@@ -75,12 +76,21 @@ app.layout = dbc.Container([
 )
 
 @app.callback(
-    [Output('chat-box', 'children'), Output('chat-box', 'style')], 
-    [Input('send-button', 'n_clicks')],
-    [State('message-input', 'value'), State('chat-box', 'children')]
+    [Output('chat-box-id', 'children'), 
+     Output('chat-box-id', 'className'), 
+     Output('ask-button-id', 'disabled')], 
+    [Input('ask-button-id', 'n_clicks')],
+    [State('message-input-id', 'value'), 
+     State('chat-box-id', 'children')]
 )
 def update_chat(n_clicks, message, chat_elements):
-    if n_clicks > 0:
+    if n_clicks is None or n_clicks == 0:
+        raise PreventUpdate
+    
+    # Disable the button at the start
+    button_disabled = True
+
+    try:        
         chat_elements = chat_elements or []
         user_icon = app_config["user_icon"]
         system_icon = app_config["system_icon"]
@@ -93,7 +103,7 @@ def update_chat(n_clicks, message, chat_elements):
             ],
             className="chat-bubble user-bubble"
         )
-        
+
         try:
             answer = get_answer(message)  # Placeholder for your answer generation logic
             answer_div = html.Div(
@@ -114,16 +124,24 @@ def update_chat(n_clicks, message, chat_elements):
             )
         
         chat_elements.extend([question_div, answer_div])
-        return chat_elements, {'display': 'block'}    
-    elif n_clicks == 0:
-        raise PreventUpdate
-    return chat_elements, {'display': 'none'}
+
+        button_disabled = False
+
+        # Enable the button and hide the progress bar after processing
+        return chat_elements, 'chat-box-shown', button_disabled
+    except Exception as e:
+        button_disabled = False
+        logging.error(f"Failed to process the messsage: '{message}'.\nError: {str(error)}", exc_info=True)
+        return chat_elements, 'chat-box-shown', button_disabled
+
 
 # Placeholder function for generating system answers
 def get_answer(question):
     # Get the answer from the chain
+    logging.info(f"Asking the question {question} ...")  
     results = qa_service(question)
     answer, docs = results["result"], results["source_documents"]
+    logging.info(f"Got the ansswer on the question {question}.") 
     if verbose: 
         log_message = f"=============\nAnswer: {answer}\n"
         for document in docs:
@@ -190,7 +208,6 @@ if __name__ == '__main__':
     model_info = ModelInfo() # DEFAULT_MODEL_NAME = "hkunlp/instructor-large" 
 
     prompt_info = PromptInfo(args.system_prompt, args.prompt_template, args.history)
-
 
     logging.info(f"Loading the embedding database from {args.persist_directory} ...")
     docs_db = load_vector_store(model_info.model_name, persist_directory=args.persist_directory)
