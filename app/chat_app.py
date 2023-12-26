@@ -152,8 +152,12 @@ def get_answer(question):
     return answer
 
 if __name__ == '__main__':
-    # Set the logging level to INFO
-    logging.basicConfig(level=logging.INFO)
+    # Set the logging level to INFO    
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
 
     # Create the parser
     parser = argparse.ArgumentParser(description="Starting Chat Application using the embedding database.")

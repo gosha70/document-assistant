@@ -1,9 +1,11 @@
 import os
+import time
 import argparse
 import logging
-import datetime
+from datetime import datetime
 import json
-from collections import defaultdict
+import zipfile
+import tempfile
 from enum import Enum
 from typing import List
 from langchain_core.documents import Document
@@ -16,12 +18,12 @@ from langchain.text_splitter import (
 )
 from langchain.document_loaders import PyPDFLoader
 
-from .embeddings_constants import CHUNK_SIZE, CHUNK_OVERLAP
+from .embeddings_constants import CHUNK_SIZE, CHUNK_OVERLAP, get_elapse_time_message, KWARGS_PARAM_NAME, PAGE_CONTENT_PARAM_NAME, METADATA_PARAM_NAME
 
-"""
-Enum defines supported file types/extensions
-"""
 class FileType(str, Enum): 
+    """
+    Enum defines supported file types/extensions
+    """
     JAVA = "java"
     HTML = "html"
     MARKDOWN = "md"
@@ -44,6 +46,9 @@ file_type_per_language = {
 }
 
 class FileLoaderQuery:
+    """
+    Holds the configuration for ssearching files to analyze
+    """
     def __init__(self):
         self.patterns = {}
 
@@ -66,28 +71,28 @@ class FileLoaderQuery:
     def __str__(self):
         return str(self.patterns)
 
-"""
-Loads and processes all PDF files in the specified directory
-
-Parameters:
-- dir_path (str): The root directory where the search for PDF is performed
-Returns:
-- (List[str]): unstructured PDF splits
-"""
 def read_pdf(dir_path) -> List[str]:
+    """
+    Loads and processes all PDF files in the specified directory
+
+    Parameters:
+    - dir_path (str): The root directory where the search for PDF is performed
+    Returns:
+    - (List[str]): unstructured PDF splits
+    """
     loader = PyPDFLoader(dir_path)
     return loader.load_and_split()
 
-"""
-Finds sources corresponding the specified file type.
-
-Parameters:
-- dir_path (str): The root directory where the search for documents is performed
-- file_type ({str}): The optional pattern for a file name
-Returns:
-- (List[str]): file
-"""
 def find_files(dir_path, file_extension) -> List[str]:
+    """
+    Finds sources corresponding the specified file type.
+
+    Parameters:
+    - dir_path (str): The root directory where the search for documents is performed
+    - file_type (str): The optional pattern for a file name
+    Returns:
+    - (List[str]): files found in the specified directory
+    """
     logging.info(f"Loading {file_extension} ...")   
     found_files = []
     for root, _, files in os.walk(dir_path):
@@ -98,16 +103,16 @@ def find_files(dir_path, file_extension) -> List[str]:
     logging.info(f"Loaded {len(found_files)} files.")
     return found_files               
 
-"""
-Loads PDF files in the specified directory.
-
-Parameters:
-- dir_path (str): The root directory where the search for documents is performed
-
-Returns:
-- (List[str]): unstructured document splits
-""" 
 def load_and_split_pdf(dir_path) -> List[Document]:
+    """
+    Loads PDF files in the specified directory.
+
+    Parameters:
+    - dir_path (str): The root directory where the search for documents is performed
+
+    Returns:
+    - (List[str]): unstructured document splits
+    """ 
     split_docs = []
     files = find_files(dir_path, '.pdf')
     for file_path in files:
@@ -116,23 +121,22 @@ def load_and_split_pdf(dir_path) -> List[Document]:
         split_docs.extend(document)
     
     return split_docs
-    
-"""
-Finds files corresponding the specified file type and optional pattern name; 
-then loads them into unstructured documents; at the end, 
-split them via the specified (TextSplitter).
+ 
+def load_and_split(dir_path, text_splitter, file_type, file_pattern = None) -> List[Document]:   
+    """
+    Finds files corresponding the specified file type and optional pattern name; 
+    then loads them into unstructured documents; at the end, 
+    split them via the specified (TextSplitter).
 
-Parameters:
-- dir_path (str): The root directory where the search for documents is performed
-- text_splitter (TextSplitter): The text splitter
-- file_type (FileType): The file type to load
-- file_pattern (str): The optional pattern for a file name
+    Parameters:
+    - dir_path (str): The root directory where the search for documents is performed
+    - text_splitter (TextSplitter): The text splitter
+    - file_type (FileType): The file type to load
+    - file_pattern (str): The optional pattern for a file name
 
-Returns:
-- (List[Document]): unstructured document splits
-"""
-def load_and_split(dir_path, text_splitter, file_type, file_pattern = None) -> List[Document]:
-
+    Returns:
+    - (List[Document]): unstructured document splits
+    """
     file_name = file_pattern if file_pattern is not None else "**/*"
 
     logging.info(f"Loading  {file_type.get_extension()} with names confirming the name pattern: '{file_name}'") 
@@ -147,18 +151,18 @@ def load_and_split(dir_path, text_splitter, file_type, file_pattern = None) -> L
 
     return text_splitter.split_documents(documents)
 
-"""
-Returns (TextSplitter) for the specified language.
-
-Parameters:
-- file_type (FileType): The file type enum indicating which (TextSplitter) to use
-
-Returns:
-- (TextSplitter)
-
-See: https://api.python.langchain.com/en/latest/text_splitter/langchain.text_splitter.Language.html
-"""
 def get_text_splitter(file_type) -> TextSplitter:
+    """
+    Returns (TextSplitter) for the specified language.
+
+    Parameters:
+    - file_type (FileType): The file type enum indicating which (TextSplitter) to use
+
+    Returns:
+    - (TextSplitter)
+
+    See: https://api.python.langchain.com/en/latest/text_splitter/langchain.text_splitter.Language.html
+    """
     language = file_type_per_language.get(file_type)
     if language is not None:
         text_separators = RecursiveCharacterTextSplitter.get_separators_for_language(language)
@@ -172,19 +176,19 @@ def get_text_splitter(file_type) -> TextSplitter:
         keep_separator=True
     )    
 
-"""
-Loads files in the specified directory into unstructured document splits.
-
-Parameters:
-- dir_path (str): The root directory where the search for documents is performed
-- file_loader_query (FileLoaderQuery): The FileLoaderQuery holds the search criteria for files to laod and analyze
-
-Returns:
-- (List[str]): unstructured document splits
-
-See: https://api.python.langchain.com/en/v0.0.345/documents/langchain_core.documents.base.Document.html
-"""
 def load_documents(dir_path, file_loader_query) -> List[Document]:
+    """
+    Loads files in the specified directory into unstructured document splits.
+
+    Parameters:
+    - dir_path (str): The root directory where the search for documents is performed
+    - file_loader_query (FileLoaderQuery): The FileLoaderQuery holds the search criteria for files to laod and analyze
+
+    Returns:
+    - (List[str]): unstructured document splits
+
+    See: https://api.python.langchain.com/en/v0.0.345/documents/langchain_core.documents.base.Document.html
+    """
     try:
         split_docs = []
         # Iterate over the file types and their patterns
@@ -211,17 +215,17 @@ def load_documents(dir_path, file_loader_query) -> List[Document]:
 
         return None
 
-"""
-Saves each split document as a separate file in the specified output directory.
-If output_dir is None, creates a new directory in the current directory.
+def save_splits_to_disk(split_docs, output_dir=None):  
+    """
+    Saves each split document as a separate file in the specified output directory.
+    If output_dir is None, creates a new directory in the current directory.
 
-Parameters:
-- split_docs (List[Document]): List of split document objects
-- output_dir (str): The directory where the split documents will be saved. Defaults to None.
+    Parameters:
+    - split_docs (List[Document]): List of split document objects
+    - output_dir (str): The directory where the split documents will be saved. Defaults to None.
 
-Returns: the directory where doocuments are saved
-"""
-def save_documents_to_disk(split_docs, output_dir=None):  
+    Returns: the directory where doocuments are saved
+    """
     if output_dir is None:
         # Create a new directory with a timestamp
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -235,42 +239,104 @@ def save_documents_to_disk(split_docs, output_dir=None):
         with open(os.path.join(output_dir, f"doc_split_{i}.json"), "w", encoding="utf-8") as file:
             json.dump(doc_json, file, indent=4)
 
-    return output_dir        
-    
+    return output_dir 
+
+def load_document_split(split_file) -> Document:
+    """
+    Craete Document from the specified JSON file.
+
+    Parameters:
+    - split_file (File): the JSON file sstoring a single unstructured document split
+
+    Returns (Document)
+    """
+    try:
+        # Read and process the content as JSON
+        json_content = split_file.read()
+
+        # Parse the JSON content
+        data = json.loads(json_content)
+
+        # Access the "page_content" field
+        page_content = data[KWARGS_PARAM_NAME][PAGE_CONTENT_PARAM_NAME]
+
+        # Access the "metadata" field
+        metadata = data[KWARGS_PARAM_NAME][METADATA_PARAM_NAME]
+
+        # Transform the data into a langchain_core.documents.Document
+        # Assuming the JSON structure fits the Document's requirements
+        return Document(page_content=page_content, metadata=metadata)
+    except Exception as error:
+        print(f"File {split_file} is not a valid JSON: {str(error)}")
+
+    return None
+
+def load_zip_with_splits(zip_file, unzip_folder=None) -> str:
+    """
+    Extracts the specified zip with unstructured document splits to the specified folder.
+
+    Parameters:
+    - zip_file (List[Document]): List of split document objects
+    - output_dir (str): The directory where the split documents will be saved. Defaults to None.
+
+    Returns: the directory where doocuments are saved
+    """    
+    if unzip_folder is None:
+        curr_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        new_folder = f"unzip_{curr_time}" 
+        unzip_folder = tempfile.mkdtemp(prefix=new_folder)
+    else:
+        # Create the directory if it doesn't exist
+        os.makedirs(unzip_folder, exist_ok=True)
+
+    # Open the zip file
+    with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+        # Extract all the contents into the directory
+        zip_ref.extractall(unzip_folder)
+
+    return unzip_folder    
+
     
 def get_FileLoaderQuery(file_types, file_patterns) -> FileLoaderQuery:
     # Create a mapping from file type to patterns
-    pattern_mapping = defaultdict(list)
+    # Create a mapping from file type to patterns
+    pattern_mapping = {}
     for pattern in file_patterns:
         file_type, file_pattern = pattern.split(':', 1)
-        pattern_mapping[file_type].append(file_pattern)
+        if file_type not in pattern_mapping or pattern_mapping[file_type] is None:
+            pattern_mapping[file_type] = set()
+        pattern_mapping[file_type].add(file_pattern)
 
     # Create an instance of FileTypePatterns and add file types and patterns
     file_loader_query = FileLoaderQuery()
-       
+
     for file_type_name in file_types: 
         file_type = FileType.get_file_type(file_type_name)
         if file_type is not None:
             patterns = pattern_mapping.get(file_type, ['**/*'])  # Default pattern if not specified      
-            file_loader_query.add_file_type(file_type, set(patterns))
+            file_loader_query.add_file_type(file_type, patterns)
         else:
             logging.error(f"Unsupported file type: {file_type_name}")  
 
     return file_loader_query         
-    
-"""
-Main function to load documents, split them, and save the splits to disk.
-"""
-def main():
-    # Set the logging level to INFO
-    logging.basicConfig(level=logging.INFO)
+
+def main():        
+    """
+    Main function to load documents, split them, and save the splits to disk.
+    """
+    # Set the logging level to INFO    
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
 
     # Create the parser
     parser = argparse.ArgumentParser(description="Creating the embedding database.")
 
     # Add the arguments
-    parser.add_argument('--dir_path', type=str, help='Root directory where to look for documents.', default=".")
-    parser.add_argument('--file_types', type=str, nargs='+', help='List of file extensions without the do: md; java; xml; html; pdf')
+    parser.add_argument('--dir_path', type=str, help='The root directory where to look for documents.', default=".")
+    parser.add_argument('--file_types', type=str, nargs='+', help='The list of file extensions without the dot: md; java; xml; html; pdf')
     parser.add_argument('--file_patterns', nargs='+', help='Name patterns for each file type; for example: --file_patterns "java:**/*Function* html:**/*"', default=[])   
     parser.add_argument('--persist_directory', type=str, help='(Optional) The path to the directory where unstructured document splits are saved.', default=None)
   
@@ -282,15 +348,17 @@ def main():
     file_loader_query = get_FileLoaderQuery(args.file_types, args.file_patterns)
 
     # Load and split documents
+    start_time = time.time()
     split_docs = load_documents(args.dir_path, file_loader_query)
+    elapsed_time_msg = get_elapse_time_message(start_time=start_time)
+    logging.info(f"Finished the document loading in {elapsed_time_msg}.")
 
     if split_docs is not None:
         # Save split documents to disk
-        doc_dir = save_documents_to_disk(split_docs, args.persist_directory)
+        doc_dir = save_splits_to_disk(split_docs, args.persist_directory)
         logging.info(f"{len(split_docs)} documet chunks are saved in {doc_dir}.")
     else:
         logging.error("No documents were loaded or split.")
 
 if __name__ == "__main__":
     main() 
-
