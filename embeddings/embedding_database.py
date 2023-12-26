@@ -14,7 +14,13 @@ from models.model_info import ModelInfo
 from .document_loader import get_FileLoaderQuery, load_zip_with_splits, load_document_split
 
 
-async def wait_for_tasks(docs_db, async_tasks) -> Chroma:
+def on_task_completion(future, task_id, completed_tasks):
+    # Update the list of completed tasks
+    completed_tasks.append(task_id)
+    print(f"The async task #{task_id} just finished. Total finished tasks: {len(completed_tasks)}")
+
+
+async def wait_for_tasks(docs_db, async_tasks, completed_tasks) -> Chroma:
     """
     Waits for the specified async tasks to finish, then saves the vectorstoore.
 
@@ -27,18 +33,20 @@ async def wait_for_tasks(docs_db, async_tasks) -> Chroma:
     """
     # Wait for all scheduled tasks to complete
     if async_tasks:
-        logging.info("Waiting for all batch task to finish.")
+        in_progress_tasks = len(async_tasks) - len(completed_tasks)
+        logging.info(f"Waiting for {in_progress_tasks} async tasks to finish ...")
         await asyncio.gather(*async_tasks)
-        logging.info("All batch task have been finished.")
+        logging.info(f"All {len(async_tasks)} async tasks finished.")
 
     # Save the Chroma database after processing all chunks
     if docs_db is not None:
+        logging.info("Saving the vectorstore ...")
         docs_db.persist()
 
     return docs_db
 
 
-async def process_chunks(docs_db, documents, embedding, collection_name, persist_directory, async_tasks) -> Chroma:
+async def process_chunks(docs_db, documents, embedding, collection_name, persist_directory, async_tasks, completed_tasks, task_id) -> Chroma:
     """
     Processes the specified chunk of (Documents).
 
@@ -51,6 +59,8 @@ async def process_chunks(docs_db, documents, embedding, collection_name, persist
     - persist_directory (str): The optional file path to store the embedding database; 
                                 if it is not specified, (Chroma) is not persisted.
     - async_tasks (List): the collection of isssued async tasks
+    - completed_tasks (List): the collection of finished async tasks
+    - task_id (int): the async task id
 
     Returns:
     - (Chroma): the embedding vectorstore
@@ -65,8 +75,9 @@ async def process_chunks(docs_db, documents, embedding, collection_name, persist
         )
         logging.info("Finished the creation of embedding vectorstore.")    
     else:
-        logging.info(f"Updating the embedding vectorstore with {len(documents)} document splits ...")
-        async_task = docs_db.aadd_documents(documents=documents)
+        logging.info(f"The async task #{task_id} is updating the embedding vectorstore with {len(documents)} document splits ...")
+        async_task = asyncio.create_task(docs_db.aadd_documents(documents=documents))
+        async_task.add_done_callback(lambda future, i=task_id: on_task_completion(future, i, completed_tasks))       
         async_tasks.append(async_task)
 
     return docs_db
@@ -90,6 +101,7 @@ async def process_splits_in_chunks(embedding, documents, chunk_size, collection_
     docs_db = None
     total_count = len(documents)
     async_tasks = []
+    completed_tasks = []
     # Process in chunks
     for i in range(0, len(documents), chunk_size):
         document_chunk = documents[i:i + chunk_size]
@@ -97,9 +109,9 @@ async def process_splits_in_chunks(embedding, documents, chunk_size, collection_
         logging.info(f"Processing the batch {batch_id}: {len(document_chunk)} documents")
 
         if document_chunk:
-            docs_db = await process_chunks(docs_db, document_chunk, embedding, collection_name, persist_directory, async_tasks)
+            docs_db = await process_chunks(docs_db, document_chunk, embedding, collection_name, persist_directory, async_tasks, completed_tasks, i)
 
-    return await wait_for_tasks(docs_db, async_tasks)
+    return await wait_for_tasks(docs_db, async_tasks, completed_tasks)
 
 
 async def process_files_in_chunks(embedding, file_paths, chunk_size, collection_name, persist_directory) -> Chroma:
@@ -120,16 +132,20 @@ async def process_files_in_chunks(embedding, file_paths, chunk_size, collection_
     docs_db = None
     total_count = len(file_paths)
     async_tasks = []
+    completed_tasks = []
     # Process in chunks
+    task_id = 0
     for i in range(0, len(file_paths), chunk_size):
         file_chunk = file_paths[i:i + chunk_size]
         batch_id = f"{i // chunk_size + 1}/{total_count // chunk_size + 1}"
         logging.info(f"Processing the batch {batch_id}: {len(file_chunk)} documents")
         if file_chunk:
             documents = [load_document_split(open(file_path, 'r')) for file_path in file_chunk if file_path]
-            docs_db = await process_chunks(docs_db, documents, embedding, collection_name, persist_directory, async_tasks)
+            logging.info(f"Starting the task {task_id} ...")
+            docs_db = await process_chunks(docs_db, documents, embedding, collection_name, persist_directory, async_tasks, completed_tasks, task_id)
+            task_id = task_id + 1
 
-    return await wait_for_tasks(docs_db, async_tasks)
+    return await wait_for_tasks(docs_db, async_tasks, completed_tasks)
 
 
 async def create_embedding_database(documents, model_name, chunk_size, collection_name, persist_directory) -> Chroma:
