@@ -1,11 +1,11 @@
 import argparse
 import logging
-import threading
 import json
+import time
 import dash
 from dash import html, dcc, Input, Output, State
-import dash_bootstrap_components as dbc
 from dash.exceptions import PreventUpdate
+import dash_bootstrap_components as dbc
 
 from retrieval_constants import CURRENT_DIRECTORY
 from models.model_info import ModelInfo
@@ -18,9 +18,14 @@ with open('app/app_config.json', 'r') as file:
 
 verbose = False
 qa_service = None
-is_in_progress = False
+next_question_delay = app_config["next_question_delay"]
+# The number of seconds passed b/w questions
+if next_question_delay is None or next_question_delay < 1:
+    next_question_delay = 1
+print(f"Minimum wait in seconds b/w questions: {next_question_delay}")
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+#app.config.suppress_callback_exceptions = True
 
 SYSTEM_ERROR = "I apologize, but I'm unable to provide a specific answer to your question based on the information currently available to me.\nMy ability to respond accurately depends on a variety of factors, including the scope of my training data and the specific details of your query.\nIf you have any other questions or need assistance with a different topic, please feel free to ask, and I'll do my best to help."
  
@@ -32,10 +37,13 @@ app.layout = dbc.Container([
         ], style={'textAlign': 'left', 'color': '#E4E4E7'}),
 
         html.Hr(className="chat-bottom-hr"),   
-        
+
+        # Pevents the concurrent request to LLM
+        dcc.Store(id='click-store', data={'last_click_time': 0}),
+
         dbc.Row(
             dbc.Col(
-                html.Div(id='chat-box-id', className='chat-box', style={'display': 'none'}),
+                html.Div(id='chat-box-id', className='chat-box chat-box-hidden'),
                 width=12,
             ),
             className="mb-2"
@@ -49,7 +57,8 @@ app.layout = dbc.Container([
                     dcc.Textarea(
                         id='message-input-id', 
                         placeholder=app_config["chat_ask_placeholder"], 
-                        className='message-input'
+                        className='message-input',
+                        disabled=False
                     ),
                     width=10,
                 ),
@@ -75,23 +84,52 @@ app.layout = dbc.Container([
     className='container-style' 
 )
 
-@app.callback(
-    [Output('chat-box-id', 'children'), 
-     Output('chat-box-id', 'className'), 
-     Output('ask-button-id', 'disabled')], 
-    [Input('ask-button-id', 'n_clicks')],
-    [State('message-input-id', 'value'), 
-     State('chat-box-id', 'children')]
-)
-def update_chat(n_clicks, message, chat_elements):
-    if n_clicks is None or n_clicks == 0:
+def check_get_click_time(n_clicks, data):    
+    current_time = time.time()
+    # Get the last click time from the store
+    last_click_time = data['last_click_time']    
+    # Calculate the time since the last click
+    time_since_last_click = current_time - last_click_time 
+    
+    print(f"LAST CLICK TIME: {last_click_time}; SINCE TIME: {time_since_last_click}")
+    if n_clicks is None or time_since_last_click <= next_question_delay:
         raise PreventUpdate
     
-    # Disable the button at the start
-    button_disabled = True
+    data['last_click_time'] = current_time
 
-    try:        
-        chat_elements = chat_elements or []
+@app.callback(
+    [Output('click-store', 'data'),
+     Output('message-input-id', 'value', allow_duplicate=True),
+     Output('message-input-id', 'disabled', allow_duplicate=True),
+     Output('ask-button-id', 'disabled', allow_duplicate=True)],
+    [Input('ask-button-id', 'n_clicks')],
+    [State('click-store', 'data')],
+    prevent_initial_call=True
+)
+def update_click_store(n_clicks, data):
+    print("update_request_lock")
+    data['last_click_time'] = check_get_click_time(n_clicks, data)
+    return data, app_config["wait_info"], True, True
+
+@app.callback(
+    [Output('chat-box-id', 'children'),
+     Output('chat-box-id', 'className'),
+     Output('message-input-id', 'value'),
+     Output('message-input-id', 'disabled'),
+     Output('ask-button-id', 'disabled')],
+    [Input('ask-button-id', 'n_clicks')],
+    [State('message-input-id', 'value'),
+     State('chat-box-id', 'children'),
+     State('click-store', 'data')]
+)
+def update_chat(n_clicks, message, chat_elements, data):   
+    if message is None:
+        raise PreventUpdate   
+    
+    data['last_click_time'] = check_get_click_time(n_clicks, data)
+    # Disable the button at the start
+    chat_elements = chat_elements or []
+    try:
         user_icon = app_config["user_icon"]
         system_icon = app_config["system_icon"]
         system_error_icon = app_config["system_error_icon"]
@@ -109,7 +147,8 @@ def update_chat(n_clicks, message, chat_elements):
             answer_div = html.Div(
                 [
                     html.Img(src=system_icon, className="chat-icon system-icon"),
-                    html.P(answer, className="chat-message system-message")
+                    # html.P(answer, className="chat-message system-message")
+                    dcc.Markdown(answer.replace('\n', '\n\n'), className="chat-message system-message")
                 ],
                 className="chat-bubble system-bubble"
             )
@@ -124,26 +163,21 @@ def update_chat(n_clicks, message, chat_elements):
             )
         
         chat_elements.extend([question_div, answer_div])
-
-        button_disabled = False
-
-        # Enable the button and hide the progress bar after processing
-        return chat_elements, 'chat-box-shown', button_disabled
-    except Exception as e:
-        button_disabled = False
+    except Exception as error:     
         logging.error(f"Failed to process the messsage: '{message}'.\nError: {str(error)}", exc_info=True)
-        return chat_elements, 'chat-box-shown', button_disabled
+
+    return chat_elements, 'chat-box-shown', '', False, False
 
 
 # Placeholder function for generating system answers
 def get_answer(question):
     # Get the answer from the chain
-    logging.info(f"Asking the question {question} ...")  
+    logging.info(f"Asking the question:\n {question}")  
     results = qa_service(question)
     answer, docs = results["result"], results["source_documents"]
-    logging.info(f"Got the ansswer on the question {question}.") 
+    logging.info(f"Got the answer on the question:\n {question}.") 
     if verbose: 
-        log_message = f"=============\nAnswer: {answer}\n"
+        log_message = f"=============\n{answer}\n"
         for document in docs:
             log_message = log_message +  f">>> {document.metadata['source']}:{document.page_content}\n"
         log_message = log_message + "=============" 
@@ -160,7 +194,7 @@ if __name__ == '__main__':
     )
 
     # Create the parser
-    parser = argparse.ArgumentParser(description="Starting Chat Application using the embedding database.")
+    parser = argparse.ArgumentParser(description="Starting Chat Application using the vectorstore.")
 
     # Add the arguments
     parser.add_argument(
@@ -178,7 +212,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--persist_directory', 
         type=str, 
-        help='The path to the directory where the embedding database will be persisted. Defaults to the root directory.', 
+        help='The path to the directory where the vectorstore will be persisted. Defaults to the root directory.', 
         default=CURRENT_DIRECTORY
     )
     parser.add_argument(
@@ -213,15 +247,16 @@ if __name__ == '__main__':
 
     prompt_info = PromptInfo(args.system_prompt, args.prompt_template, args.history)
 
-    logging.info(f"Loading the embedding database from {args.persist_directory} ...")
+    logging.info(f"Loading the vectorstore from {args.persist_directory} ...")
     docs_db = load_vector_store(model_info.model_name, persist_directory=args.persist_directory)
     
     if docs_db is None:
-        logging.error(f"Failed to load the embedding database from {args.persist_directory}.")  
+        logging.error(f"Failed to load the vectorstore from {args.persist_directory}.")  
     else:
-        logging.info(f"Initializing the retrieval framework for the embedding database: {docs_db} ...")  
+        dic = docs_db.get()["ids"]
+        logging.info(f"Loaded the vectorstore with {len(dic)} documents.")  
         qa_service = create_retrieval_qa(model_info=model_info, prompt_info=prompt_info, vectorstore=docs_db)
         if qa_service is None:
-            logging.error(f"Failed to initialize the retrieval framework for the embedding database: {docs_db}.")  
+            logging.error(f"Failed to initialize the retrieval framework for the vectorstore located in {args.persist_directory}.")  
         else:    
-            app.run_server(debug=False, host=args.host, port=args.port)   
+            app.run_server(debug=True, host=args.host, port=args.port)   
