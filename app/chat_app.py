@@ -3,6 +3,7 @@ import logging
 import json
 import time
 import dash
+from datetime import datetime
 from dash import html, dcc, Input, Output, State
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
@@ -31,10 +32,15 @@ SYSTEM_ERROR = "I apologize, but I'm unable to provide a specific answer to your
  
 # This layout closely follows the structure of popular chat applications
 app.layout = dbc.Container([
-        html.H1([    
-            html.Img(src=app_config["chat_logo"], className='title-image'),  # Custom Image        
-            html.Span(app_config["chat_title"], className='title-span')  # Title with some space
-        ], style={'textAlign': 'left', 'color': '#E4E4E7'}),
+        html.Div([
+            html.Div([  # Div for image and text
+                html.Img(src=app_config["chat_logo"], className='title-image'),  # Custom Image
+                html.Div([  # Nested Div for title and subtitle
+                        html.Span(app_config["chat_title"], className='title-span'),  # Title text
+                        html.Span(app_config["chat_subtitle"], className='subtitle-span')  # Subtitle text
+                ], style={'display': 'inline-block', 'verticalAlign': 'top', 'marginLeft': '10px'})  
+            ], style={'textAlign': 'left', 'color': '#E4E4E7', 'display': 'flex', 'alignItems': 'center'})
+        ], className='header-container'),
 
         html.Hr(className="chat-bottom-hr"),   
 
@@ -84,18 +90,26 @@ app.layout = dbc.Container([
     className='container-style' 
 )
 
+
+def formatted_datetime():
+    # Format the date and time to display in the chat to: 'Dec 25, 2023 12:00 PM'
+    return datetime.now().strftime('%b %d, %Y %I:%M %p')
+
+
 def check_get_click_time(n_clicks, data):    
     current_time = time.time()
     # Get the last click time from the store
     last_click_time = data['last_click_time']    
+    if last_click_time is None:
+        return current_time
+        
     # Calculate the time since the last click
     time_since_last_click = current_time - last_click_time 
-    
-    print(f"LAST CLICK TIME: {last_click_time}; SINCE TIME: {time_since_last_click}")
     if n_clicks is None or time_since_last_click <= next_question_delay:
         raise PreventUpdate
     
-    data['last_click_time'] = current_time
+    return current_time
+
 
 @app.callback(
     [Output('click-store', 'data'),
@@ -107,9 +121,9 @@ def check_get_click_time(n_clicks, data):
     prevent_initial_call=True
 )
 def update_click_store(n_clicks, data):
-    print("update_request_lock")
     data['last_click_time'] = check_get_click_time(n_clicks, data)
     return data, app_config["wait_info"], True, True
+
 
 @app.callback(
     [Output('chat-box-id', 'children'),
@@ -136,7 +150,13 @@ def update_chat(n_clicks, message, chat_elements, data):
 
         question_div = html.Div(
             [
-                html.Img(src=user_icon, className="chat-icon user-icon"),
+                html.Div(
+                    [
+                        html.Img(src=user_icon, className="chat-icon user-icon"),
+                        html.Span(formatted_datetime(), className="chat-datetime") 
+                    ],
+                    className="chat-header"
+                ),
                 html.P(message, className="chat-message user-message")
             ],
             className="chat-bubble user-bubble"
@@ -145,8 +165,14 @@ def update_chat(n_clicks, message, chat_elements, data):
         try:
             answer = get_answer(message)  # Placeholder for your answer generation logic
             answer_div = html.Div(
-                [
-                    html.Img(src=system_icon, className="chat-icon system-icon"),
+                [                    
+                    html.Div( 
+                        [
+                            html.Img(src=system_icon, className="chat-icon system-icon"),
+                            html.Span(formatted_datetime(), className="chat-datetime") 
+                        ],
+                        className="chat-header"
+                    ),
                     # html.P(answer, className="chat-message system-message")
                     dcc.Markdown(answer.replace('\n', '\n\n'), className="chat-message system-message")
                 ],
@@ -216,6 +242,12 @@ if __name__ == '__main__':
         default=CURRENT_DIRECTORY
     )
     parser.add_argument(
+        '--collection_name', 
+        type=str, 
+        help='The name of vectorestore.', 
+        default=None
+    )
+    parser.add_argument(
         '--system_prompt', 
         type=str, 
         help='(Optional) The system instruction for Retrieval Q/A LLM.'
@@ -247,8 +279,12 @@ if __name__ == '__main__':
 
     prompt_info = PromptInfo(args.system_prompt, args.prompt_template, args.history)
 
-    logging.info(f"Loading the vectorstore from {args.persist_directory} ...")
-    docs_db = load_vector_store(model_info.model_name, persist_directory=args.persist_directory)
+    logging.info(f"Input arguments:\n===\n{args}\n===\nLoading the vectorstore from {args.persist_directory} ...")
+    docs_db = load_vector_store(
+        model_name=model_info.model_name, 
+        collection_name=args.collection_name, 
+        persist_directory=args.persist_directory
+    )
     
     if docs_db is None:
         logging.error(f"Failed to load the vectorstore from {args.persist_directory}.")  
@@ -259,4 +295,4 @@ if __name__ == '__main__':
         if qa_service is None:
             logging.error(f"Failed to initialize the retrieval framework for the vectorstore located in {args.persist_directory}.")  
         else:    
-            app.run_server(debug=True, host=args.host, port=args.port)   
+            app.run_server(debug=False, host=args.host, port=args.port)   

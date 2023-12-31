@@ -4,6 +4,11 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;  /* Modern font */
 }
 
+.header-container {
+    /* Adjust padding and margins as necessary */
+    padding: 10px 0;
+}
+
 /* Custom Image for Title */
 .title-image {
     height: 120px;
@@ -14,6 +19,15 @@ body {
 .title-span {
     margin-left: 20px;
     color: #E4E4E7;
+    font-size: 3em;  
+}
+
+.subtitle-span {
+    display: block;  
+    font-size: 1.5em;  
+    color: #999;  
+    margin-top: 10px;  
+    font-style: italic;
 }
 
 .ask-button {
@@ -57,6 +71,18 @@ body {
     max-width: 80%;
     background-color: #121212;
     top: 20px;
+}
+
+.chat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.chat-datetime {
+    margin-left: 8px;  
+    font-size: 0.85em; 
+    color: #AAA; 
 }
 
 .chat-icon {
@@ -104,6 +130,13 @@ body {
     margin-left: 2%;
     width: 95%;
     text-align: left;  /* Text alignment */
+}
+
+/* Customizing code text within markdown */
+.chat-message.system-message code {
+    color: #44bbcc;
+    font-family: courier;
+    font-style: italic;
 }
 
 .chat-message {

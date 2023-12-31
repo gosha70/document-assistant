@@ -332,13 +332,32 @@ def main():
     )
 
     # Create the parser
-    parser = argparse.ArgumentParser(description="Creating the embedding database.")
+    parser = argparse.ArgumentParser(description="Creating the vectorsstore ...")
 
     # Add the arguments
-    parser.add_argument('--dir_path', type=str, help='The root directory where to look for documents.', default=".")
-    parser.add_argument('--file_types', type=str, nargs='+', help='The list of file extensions without the dot: md; java; xml; html; pdf')
-    parser.add_argument('--file_patterns', nargs='+', help='Name patterns for each file type; for example: --file_patterns "java:**/*Function* html:**/*"', default=[])   
-    parser.add_argument('--persist_directory', type=str, help='(Optional) The path to the directory where unstructured document splits are saved.', default=None)
+    parser.add_argument(
+        '--dir_path', 
+        type=str, 
+        help='The root directory where to look for documents.', 
+        default="."
+    )
+    parser.add_argument(
+        '--file_types', 
+        type=str, nargs='+', 
+        help='The list of file extensions without the dot: md; java; xml; html; pdf'
+    )
+    parser.add_argument(
+        '--file_patterns', 
+        nargs='+', 
+        help='Name patterns for each file type; for example: --file_patterns "java:**/*Function* html:**/*"', 
+        default=[]
+    )   
+    parser.add_argument(
+        '--persist_directory', 
+        type=str, 
+        help='(Optional) The path to the directory where unstructured document splits are saved.', 
+        default=None
+    )
   
     # Parse the arguments
     args = parser.parse_args()

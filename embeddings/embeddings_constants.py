@@ -11,14 +11,15 @@ PAGE_CONTENT_PARAM_NAME = 'page_content'
 METADATA_PARAM_NAME = 'metadata'
 
 # Number of files to process at a time
-BATCH_SIZE = 150
+BATCH_SIZE = 300
 
 # Chroma settings
 CHROMA_SETTINGS = Settings(
     anonymized_telemetry=False,
     is_persistent=True,
 )
-DEFAULT_COLLECTION_NAME = "DOCUMENTS_DB"
+
+DEFAULT_COLLECTION_NAME = "EGOGE_DOCUMENTS_DB"
 
 def get_elapse_time_message(start_time):
     end_time = time.time()

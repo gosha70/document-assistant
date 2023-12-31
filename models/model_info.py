@@ -71,3 +71,6 @@ class ModelInfo:
             model_kwargs=EMBEDDING_KWARGS, 
             encode_kwargs=ENCODE_KWARG
         )
+    
+    def embedding_class():
+        return "langchain.embeddings.HuggingFaceInstructEmbeddings"   

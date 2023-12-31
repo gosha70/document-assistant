@@ -1,5 +1,6 @@
 {
-    "chat_title": "Private Chat",
+    "chat_title": "D.O.T.",
+    "chat_subtitle": "Document of Things",
     "chat_ask_placeholder": "I am ready to answer your question (the next question can be asked in 5 seconds) ...", 
     "chat_logo": "/assets/chat_logo_small.png",
     "ask_button": "/assets/chat_ask_light_64.png",
