@@ -32,7 +32,7 @@ def create_manifest(collection_name, model_name, persist_directory):
     current_utc_datetime = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z' 
 
     # Manifest content
-    manifest_content = f"""Manifest-Version: 1.0\nCreated-On: {current_utc_datetime}\nCreated-By: EGOGE (https://github.com/gosha70/document-assistant)\nCollection Name: {collection_name}\nEmbedding Class: {ModelInfo.embedding_class()}\nEmbedding Model Name: {model_name}
+    manifest_content = f"""Manifest-Version: 1.0\nCreated-On: {current_utc_datetime}\nCreated-By: EGOGE (https://github.com/gosha70/document-assistant)\nCollectio-Name: {collection_name}\nEmbedding-Class: {ModelInfo.embedding_class()}\nEmbedding-Model-Name: {model_name}
     """
 
     if not os.path.exists(meta_inf_path):
