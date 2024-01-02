@@ -1,7 +1,7 @@
 import argparse
 from langchain.vectorstores import Chroma
 
-from embeddings.embeddings_constants import CHROMA_SETTINGS
+from embeddings.embeddings_constants import CHROMA_SETTINGS, DEFAULT_COLLECTION_NAME
 
 from models.model_info import ModelInfo
 
@@ -19,10 +19,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     embedding = ModelInfo.create_embedding(model_name=None)
+
+    collection_name = args.collection_name 
+    if collection_name is None:
+        collection_name = DEFAULT_COLLECTION_NAME
+         
     docs_db = Chroma(
         persist_directory=args.persist_directory,
         embedding_function=embedding,
-        collection_name=args.persist_directory,
+        collection_name=collection_name,
         client_settings=CHROMA_SETTINGS,
     )   
     print(f" Collection count: {docs_db._collection.count()}")
