@@ -22,7 +22,7 @@ if __name__ == "__main__":
     docs_db = Chroma(
         persist_directory=args.persist_directory,
         embedding_function=embedding,
-        collection_namee=args.persist_directory,
+        collection_name=args.persist_directory,
         client_settings=CHROMA_SETTINGS,
     )   
     print(f" Collection count: {docs_db._collection.count()}")
