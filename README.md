@@ -62,9 +62,9 @@ The `MANIFEST.MF` with the important information about generated vector store ca
 Manifest-Version: 1.0
 Created-On: 2023-12-31T14:13:33.392Z
 Created-By: EGOGE (https://github.com/gosha70/document-assistant)
-Collection Name: EGOGE_DOCUMENTS_DB
-Embedding Class: langchain.embeddings.HuggingFaceInstructEmbeddings
-Embedding Model Name: hkunlp/instructor-large
+Collection-Name: EGOGE_DOCUMENTS_DB
+Embedding-Class: langchain.embeddings.HuggingFaceInstructEmbeddings
+Embedding-Model-Name: hkunlp/instructor-large
 ```
 :triangular_flag_on_post: You must remember the `collection name` in order to load the created vector store; the **D.O.T. Application** defaults to `EGOGE_DOCUMENTS_DB`, otherwise the `collection name` must be passed via `--collection_name`.
 
