@@ -1,0 +1,63 @@
+body {
+    background-color: #121212;
+    color: #E4E4E7;
+}
+
+.title-span {
+    color: #E4E4E7;
+}
+
+.subtitle-span {
+    color: #999;
+}
+
+.message-input {
+    border: 5px solid #3F3F46;
+    background-color: #2D2D2D;
+    color: #E4E4E7;
+}
+
+.container-style {
+    background-color: #121212;
+}
+
+.chat-datetime {
+    color: #AAA; 
+}
+
+.chat-box {
+    background-color: #1F1F1F;
+    color: #D1D5DB;
+    border: 1px solid #3F3F46;
+}
+
+.user-bubble {
+    background-color: #2D2D2D;
+    color: #E4E4E7;
+}
+
+.system-bubble {
+    background-color: #4B5563;
+    color: #F3F4F6;
+}
+
+/* Customizing code text within markdown */
+.chat-message.system-message code {
+    color: #44bbcc;
+}
+
+.system-error-message {
+    color: #f65757;
+}
+
+.chat-top-hr {
+    background-color: #6366F1;
+}
+
+.chat-bottom-hr {
+    background-color: #EF4444;
+}
+
+.custom-footer-style {
+    color: #222222;
+}

@@ -1,0 +1,63 @@
+body {
+    background-color: #E0F2F1; /* Light turquoise background */
+    color: #05668D; /* Darker turquoise for text */
+}
+
+.title-span {
+    color: #028090; /* Slightly darker turquoise for titles */
+}
+
+.subtitle-span {
+    color: #4FBDBA; /* Soft turquoise for subtitles */
+}
+
+.message-input {
+    border: 5px solid #4FBDBA; /* Turquoise border */
+    background-color: #B2EBF2; /* Very light turquoise */
+    color: #05668D; /* Darker turquoise for text input */
+}
+
+.container-style {
+    background-color: #E0F2F1; /* Light turquoise background */
+}
+
+.chat-datetime {
+    color: #028090; /* Slightly darker turquoise for datetime */
+}
+
+.chat-box {
+    background-color: #B2EBF2; /* Very light turquoise for chat box */
+    color: #05668D; /* Darker turquoise for chat text */
+    border: 1px solid #4FBDBA; /* Turquoise border */
+}
+
+.user-bubble {
+    background-color: #B2EBF2; /* Very light turquoise for user messages */
+    color: #05668D; /* Darker turquoise for text */
+}
+
+.system-bubble {
+    background-color: #80CBC4; /* Medium turquoise for system messages */
+    color: #033E3E; /* Deep turquoise for text */
+}
+
+/* Customizing code text within markdown */
+.chat-message.system-message code {
+    color: #028090; /* Slightly darker turquoise for code */
+}
+
+.system-error-message {
+    color: #BF616A; /* Soft red for error messages, providing contrast */
+}
+
+.chat-top-hr {
+    background-color: #4FBDBA; /* Turquoise for top horizontal rule */
+}
+
+.chat-bottom-hr {
+    background-color: #028090; /* Slightly darker turquoise for bottom horizontal rule */
+}
+
+.custom-footer-style {
+    color: #05668D; /* Darker turquoise for footer text */
+}
