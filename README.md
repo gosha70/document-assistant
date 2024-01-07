@@ -85,13 +85,23 @@ The `Document Assistant` project provides the out-of-box **Dash** application wh
 
 ![image](https://github.com/gosha70/document-assistant/assets/17832712/76847401-8c27-4e2b-a613-218c622ba395)
 
-UX of D.O.T. Appicatiion can be easily customized via [App Config JSON](https://github.com/gosha70/document-assistant/blob/main/app/app_config.json).
-
 The explanation about the parameters for starting the application and customizing runtime **RAG** can be found at the `main` method of [chat_app](https://github.com/gosha70/document-assistant/blob/main/app/chat_app.py).
 
 :triangular_flag_on_post: You must remember the `collection name` in order to load the created vector store; the **D.O.T. Application** defaults to `EGOGE_DOCUMENTS_DB`, otherwise the `collection name` must be passed via `--collection_name`.
 
 :information_source: Pass `--history True` if the chat uses the previously asked questions and answers.
+
+#### Customizing Application
+
+##### Content Customization
+UX of D.O.T. Appicatiion can be easily customized via [App Config JSON](https://github.com/gosha70/document-assistant/blob/main/app/app_config.json).
+For example, see how it is done in the demo application for [Quantum Computing Q/A](https://github.com/gosha70/quantum-chat/blob/main/app/app_config.json)
+
+##### Color Scheme
+The default dark mode color sheme can be switched to the out-of-box provided the turquoise color scheme (how it is done in [Quantum Computing Q/A](https://github.com/gosha70/quantum-chat)).
+In order to use a different color scheme, replace `*_color-scheme.css` in the [assets folder](https://github.com/gosha70/document-assistant/tree/main/app/assets) with your `CSS` with overwritten properties, or with one in the [color_schemes folder](https://github.com/gosha70/document-assistant/tree/main/app/color_schemes).
+
+
 
 #### Demo Appicatiion
 1. `pip3 install dash dash-bootstrap-components`
