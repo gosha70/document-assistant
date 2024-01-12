@@ -13,7 +13,7 @@ from embeddings.embeddings_constants import CHROMA_SETTINGS, DEFAULT_COLLECTION_
 from models.model_info import ModelInfo
 from models.models_constants import DEFAULT_MODEL_NAME
 
-from .document_loader import get_FileLoaderQuery, load_zip_with_splits, load_document_split
+from .document_loader import get_FileLoaderQuery, load_zip_with_splits, load_document_split, load_supported_documents
 
 def create_manifest(collection_name, model_name, persist_directory):
     if persist_directory is None:
@@ -101,6 +101,7 @@ async def process_chunks(docs_db, documents, embedding, collection_name, persist
         logging.info(f"Creating the embedding vectorstore with {embedding} for {len(documents)} document splits ...")    
         if collection_name is None:
             collection_name = DEFAULT_COLLECTION_NAME
+
         docs_db = Chroma.from_documents(
             documents=documents,
             collection_name=collection_name,
@@ -267,14 +268,13 @@ async def create_embedding_database_from_zip(zip_file, model_name, chunk_size, c
         persist_directory=persist_directory
     )
 
-def create_vector_store(dir_path, file_loader_query, model_name, collection_name, persist_directory) -> Chroma:
+def create_vector_store(documents, model_name, collection_name, persist_directory) -> Chroma:
     """
     Creates a (Chroma) embedding vectorstore which stores processed unstructured document splits
     associates with the specified file types.
 
     Parameters:
-    - dir_path (str): The root directory where the search for documents is performed
-    - file_loader_query (FileType): The file type to load
+    - documents (List[Document]): The documents to store in the vectorstore
     - model_name (str): The embedding model name; if it is not specified, it is set to "BAAI/bge-small-en"
     - collection_name (str): the vectorstore collection name
     - persist_directory (str): The optional file path to store the embedding vectorstore; 
@@ -283,10 +283,7 @@ def create_vector_store(dir_path, file_loader_query, model_name, collection_name
     Returns:
     - (Chroma): the embedding vectorstore if documents are found and processed; otherwise - None.
     """
-    # Load documents
-    split_docs = load_documents(dir_path, file_loader_query)
-
-    if split_docs:
+    if documents:
         # Create embeddings and database
         return asyncio.run(create_embedding_database(
             documents=split_docs, 
@@ -325,7 +322,6 @@ def load_vector_store(model_name, collection_name, persist_directory) -> Chroma:
         client_settings=CHROMA_SETTINGS,
     )
 
-
 if __name__ == "__main__":      
     """
     Main function to load documents, split them, and create a vectorstore with this splits of found documents.
@@ -355,7 +351,8 @@ if __name__ == "__main__":
     parser.add_argument(
         '--file_types', 
         type=str, nargs='+', 
-        help='List of file extensions without the do: md; java; xml; html; pdf'
+        help='(Optional) List of file extensions (without the dot) to find in the specified directory; if the argument is missing, then all supported files are searched.', 
+        default=None
     )
     parser.add_argument(
         '--file_patterns', 
@@ -405,14 +402,19 @@ if __name__ == "__main__":
             persist_directory=args.persist_directory
         ))
     else:
-        file_loader_query = get_FileLoaderQuery(args.file_types, args.file_patterns)   
-        docs_db = create_vector_store(
-            dir_path=args.dir_path, 
-            file_loader_query=file_loader_query, 
+        if args.file_types is None:
+            file_loader_query = get_FileLoaderQuery(args.file_types, args.file_patterns)  
+            split_docs = load_documents(args.dir_path, file_loader_query) 
+        else:
+            split_docs = load_supported_documents(args.dir_path)
+        
+        docs_db = asyncio.run(create_embedding_database(
+            documents=split_docs, 
             model_name=args.model_name,
+            chunk_size=BATCH_SIZE,
             collection_name=args.collection_name,
             persist_directory=args.persist_directory
-        )
+        ))
 
     create_manifest(collection_name=args.collection_name, model_name=args.model_name, persist_directory=args.persist_directory)
 

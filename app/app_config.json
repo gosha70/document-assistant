@@ -3,11 +3,14 @@
     "chat_subtitle": "Document of Things",
     "chat_ask_placeholder": "I am ready to answer your question (the next question can be asked in 5 seconds) ...", 
     "chat_logo": "/assets/chat_logo_small.png",
+    "file_attach_icon": "/assets/attach_64.png",
+    "attach_button_title": "Drag and Drop or Select Files",
     "ask_button": "/assets/chat_ask_light_64.png",
     "user_icon": "/assets/chat_user_32.png",
     "system_icon": "/assets/chat_bot_32.png",
     "system_error_icon": "/assets/chat_bot_upset_32.png",
     "copyright": "© 2023 EGOGE - All Rights Reserved",
     "next_question_delay": 5,
-    "wait_info": "Please wait !!!\n\nI am looking for the answer ..." 
+    "wait_info": "Please wait !!!\n\nI am looking for the answer ..." ,
+    "color_shceme" : "dark"
 }

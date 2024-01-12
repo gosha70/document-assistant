@@ -26,6 +26,15 @@ body {
     font-style: italic;
 }
 
+.align-items-center {
+    align-items: center;
+}
+
+.my-col {
+    padding-right: 2px;
+    padding-left: 2px;
+}
+
 .ask-button {
     background-color: transparent;
     border: none;

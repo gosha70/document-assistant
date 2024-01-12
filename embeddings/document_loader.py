@@ -16,7 +16,18 @@ from langchain.text_splitter import (
     RecursiveCharacterTextSplitter,
     TextSplitter
 )
-from langchain.document_loaders import PyPDFLoader
+from langchain.document_loaders import (
+    JSONLoader, 
+    PythonLoader,
+    PyPDFLoader, 
+    TextLoader,  
+    UnstructuredCSVLoader,  
+    UnstructuredHTMLLoader, 
+    UnstructuredMarkdownLoader, 
+    UnstructuredRTFLoader,
+    UnstructuredXMLLoader,
+    UnstructuredExcelLoader
+)
 
 from .embeddings_constants import CHUNK_SIZE, CHUNK_OVERLAP, get_elapse_time_message, KWARGS_PARAM_NAME, PAGE_CONTENT_PARAM_NAME, METADATA_PARAM_NAME
 
@@ -24,11 +35,22 @@ class FileType(str, Enum):
     """
     Enum defines supported file types/extensions
     """
+    CSV = "csv"
+    DDL = "ddl"
+    EXCEL = "xlsx"
     JAVA = "java"
+    JS = "js"
+    JSON  = "json"
     HTML = "html"
     MARKDOWN = "md"
     PDF = "pdf"
+    PYTHON = "py"
+    RICH_TEXT = "rtf"
+    SQL = "sql"
+    TEXT = "txt"
     XML = "xml"
+    XSL = "xsl"
+    YAML = "yaml"
 
     def get_file_type(value):
         try:
@@ -41,8 +63,12 @@ class FileType(str, Enum):
 
 file_type_per_language = {
     FileType.JAVA: Language.JAVA, 
+    FileType.JS: Language.JS,
     FileType.HTML: Language.HTML, 
-    FileType.MARKDOWN: Language.MARKDOWN
+    FileType.MARKDOWN: Language.MARKDOWN,
+    FileType.PYTHON: Language.PYTHON,
+    FileType.SQL: Language.SOL,
+    FileType.DDL: Language.SOL
 }
 
 class FileLoaderQuery:
@@ -71,18 +97,6 @@ class FileLoaderQuery:
     def __str__(self):
         return str(self.patterns)
 
-def read_pdf(dir_path) -> List[str]:
-    """
-    Loads and processes all PDF files in the specified directory
-
-    Parameters:
-    - dir_path (str): The root directory where the search for PDF is performed
-    Returns:
-    - (List[str]): unstructured PDF splits
-    """
-    loader = PyPDFLoader(dir_path)
-    return loader.load_and_split()
-
 def find_files(dir_path, file_extension) -> List[str]:
     """
     Finds sources corresponding the specified file type.
@@ -101,7 +115,19 @@ def find_files(dir_path, file_extension) -> List[str]:
                 found_files.append(os.path.join(root, file))
 
     logging.info(f"Loaded {len(found_files)} files.")
-    return found_files               
+    return found_files           
+
+def read_pdf(file_path) -> List[str]:
+    """
+    Reads and processes a single PDF file
+
+    Parameters:
+    - file_path (str): The path to PDF
+    Returns:
+    - (List[str]): unstructured PDF splits
+    """
+    loader = PyPDFLoader(file_path)
+    return loader.load_and_split()
 
 def load_and_split_pdf(dir_path) -> List[Document]:
     """
@@ -176,6 +202,77 @@ def get_text_splitter(file_type) -> TextSplitter:
         keep_separator=True
     )    
 
+def load_split_file(text_splitter, file_type, file) -> List[Document]:
+    if file_type == FileType.PDF:
+        return read_pdf(file)
+    else:    
+        if file_type == FileType.CSV:
+            loader = UnstructuredCSVLoader(file_path=file)
+        elif file_type == FileType.HTML:
+            loader = UnstructuredHTMLLoader(file_path=file)
+        elif file_type == FileType.JSON:
+            loader = JSONLoader(file_path=file, jq_schema='.', text_content=False)
+        elif file_type == FileType.MARKDOWN:
+            loader = UnstructuredMarkdownLoader(file_path=file)
+        elif file_type == FileType.XML:
+            loader = UnstructuredXMLLoader(file_path=file)
+        elif file_type == FileType.EXCEL:
+            loader = UnstructuredExcelLoader(file_path=file)
+        elif file_type == FileType.PYTHON:
+            loader = PythonLoader(file_path=file)
+        elif file_type == FileType.RICH_TEXT:
+            loader = UnstructuredRTFLoader(file_path=file)           
+        else:
+            loader = TextLoader(file_path=file)    
+
+        try: 
+          return loader.load_and_split(text_splitter=text_splitter)
+        except Exception as error:
+          logging.error(f"Failed to process '{file}' with the text splitter '{text_splitter}'; the file will be procesed with TextLoader instead: {str(error)}", exc_info=False)
+
+        return TextLoader(file_path=file).load_and_split(text_splitter=text_splitter) 
+        
+
+def load_supported_documents(dir_path) -> List[Document]:
+    """
+    Finds and loads all files corresponding to supported file types and counts them.
+
+    Parameters:
+    - dir_path (str): The root directory where the search for documents is performed
+
+    Returns:
+    - (List[Document]): unstructured document splits
+    """
+    logging.info("Loading files with supported extensions...")   
+    files_by_type = {file_type: [] for file_type in FileType} 
+    for root, _, files in os.walk(dir_path):
+        for file in files:
+            for file_type in FileType:
+                if file.endswith(file_type.get_extension()):
+                    file_path = os.path.join(root, file)
+                    files_by_type[file_type].append(file_path)
+
+    split_docs = [] 
+    file_type_counts = {file_type: 0 for file_type in FileType} 
+    for file_type, files in files_by_type.items():
+        if len(files) > 0: 
+            text_splitter = get_text_splitter(file_type)
+            if text_splitter is None:
+                logging.warning(f"Cannot find (TextSplitter) for {file_type.get_extension()}")
+                continue
+            for file_path in files:
+                file_splits = load_split_file(text_splitter, file_type, file_path)
+                split_docs.extend(file_splits)
+                file_type_counts[file_type] += 1
+
+    logging.info(f"Total document splits: {len(split_docs)}")  
+    # Log the count of each file type found
+    for file_type, count in file_type_counts.items():
+        if count > 0:
+            logging.info(f"Found {count} '{file_type.value}' files.")
+  
+    return split_docs
+
 def load_documents(dir_path, file_loader_query) -> List[Document]:
     """
     Loads files in the specified directory into unstructured document splits.
@@ -185,7 +282,7 @@ def load_documents(dir_path, file_loader_query) -> List[Document]:
     - file_loader_query (FileLoaderQuery): The FileLoaderQuery holds the search criteria for files to laod and analyze
 
     Returns:
-    - (List[str]): unstructured document splits
+    - (List[Document]): unstructured document splits
 
     See: https://api.python.langchain.com/en/v0.0.345/documents/langchain_core.documents.base.Document.html
     """
@@ -363,12 +460,14 @@ def main():
     args = parser.parse_args()
 
     logging.info(f"Searching and processing documents with the arguments: {args}")
-
-    file_loader_query = get_FileLoaderQuery(args.file_types, args.file_patterns)
-
     # Load and split documents
     start_time = time.time()
-    split_docs = load_documents(args.dir_path, file_loader_query)
+    if args.file_types is None:
+        split_docs = load_supported_documents(args.dir_path)
+    else:
+        file_loader_query = get_FileLoaderQuery(args.file_types, args.file_patterns)    
+        split_docs = load_documents(args.dir_path, file_loader_query)
+
     elapsed_time_msg = get_elapse_time_message(start_time=start_time)
     logging.info(f"Finished the document loading in {elapsed_time_msg}.")
 
