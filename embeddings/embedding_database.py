@@ -51,7 +51,6 @@ def on_task_completion(future, task_id, completed_tasks):
     completed_tasks.append(task_id)
     print(f"The async task #{task_id} just finished. Total finished tasks: {len(completed_tasks)}")
 
-
 async def wait_for_tasks(docs_db, async_tasks, completed_tasks) -> Chroma:
     """
     Waits for the specified async tasks to finish, then saves the vectorstoore.
@@ -76,7 +75,6 @@ async def wait_for_tasks(docs_db, async_tasks, completed_tasks) -> Chroma:
         docs_db.persist()
 
     return docs_db
-
 
 async def process_chunks(docs_db, documents, embedding, collection_name, persist_directory, async_tasks, completed_tasks, task_id) -> Chroma:
     """
@@ -117,7 +115,6 @@ async def process_chunks(docs_db, documents, embedding, collection_name, persist
 
     return docs_db
 
-
 def adjust_batch_size(batch_size, items_count):
     max_thread = items_count / batch_size
     # Limit to 10 concurrent thread (the first batch is processed synchronously)
@@ -125,7 +122,6 @@ def adjust_batch_size(batch_size, items_count):
         batch_size = items_count / 11
 
     return int(batch_size)    
-
 
 async def process_splits_in_chunks(embedding, documents, chunk_size, collection_name, persist_directory) -> Chroma:
     """
@@ -160,7 +156,6 @@ async def process_splits_in_chunks(embedding, documents, chunk_size, collection_
             docs_db = await process_chunks(docs_db, document_chunk, embedding, collection_name, persist_directory, async_tasks, completed_tasks, i)
 
     return await wait_for_tasks(docs_db, async_tasks, completed_tasks)
-
 
 async def process_files_in_chunks(embedding, file_paths, chunk_size, collection_name, persist_directory) -> Chroma:
     """
@@ -199,7 +194,6 @@ async def process_files_in_chunks(embedding, file_paths, chunk_size, collection_
 
     return await wait_for_tasks(docs_db, async_tasks, completed_tasks)
 
-
 async def create_embedding_database(documents, model_name, chunk_size, collection_name, persist_directory) -> Chroma:
     """
     Creates a (Chroma) embedding vectorstore which stores processed unstructured document splits.
@@ -229,6 +223,40 @@ async def create_embedding_database(documents, model_name, chunk_size, collectio
         persist_directory=persist_directory
     )
 
+async def create_embedding_database_from_splits(splits_directory, model_name, chunk_size, collection_name, persist_directory) -> Chroma:
+    """
+    Creates a (Chroma) embedding vectorstore from unstructured document splits.
+
+    Parameters:
+    - splits_directory (str): The full path to directory with unstructured documents
+    - model_name (str): The embedding model name
+    - chunk_size (int): The size of each batch/chunk added to a vectorstore
+    - collection_name (str): the vectorstore collection name
+    - persist_directory (str): The optional file path to store the embedding vectorstore; 
+                               if it is not specified, (Chroma) is not persisted.
+
+    Returns:
+    - (Chroma): the embedding vectorstore
+    """    
+    logging.info(f"Creating the embedding vectorstore from splits in the directory: '{splits_directory}' ...")    
+    # Collect all file paths
+    file_paths = []
+    for dirpath, dirnames, filenames in os.walk(splits_directory):
+        for file_name in filenames:
+            full_path = os.path.join(dirpath, file_name)
+            file_paths.append(full_path)
+
+    logging.info(f"Found {len(file_paths)} files")        
+
+    embedding = ModelInfo.create_embedding(model_name=model_name)
+
+    return await process_files_in_chunks(
+        embedding=embedding, 
+        file_paths=file_paths, 
+        chunk_size=chunk_size,
+        collection_name=collection_name,
+        persist_directory=persist_directory
+    )   
 
 async def create_embedding_database_from_zip(zip_file, model_name, chunk_size, collection_name, persist_directory) -> Chroma:
     """
@@ -245,28 +273,21 @@ async def create_embedding_database_from_zip(zip_file, model_name, chunk_size, c
     Returns:
     - (Chroma): the embedding vectorstore
     """
+    logging.info(f"Creating the embedding vectorstore from the zip file: '{zip_file}' ...") 
     unzip_folder = load_zip_with_splits(zip_file=zip_file) 
 
     if unzip_folder is None:
         logging.warning(f"Cannot create an embedding database from empty zip: {zip_file}")  
         return None  
-    
-    # Collect all file paths
-    file_paths = []
-    for dirpath, dirnames, filenames in os.walk(unzip_folder):
-        for file_name in filenames:
-            full_path = os.path.join(dirpath, file_name)
-            file_paths.append(full_path)
-
-    embedding = ModelInfo.create_embedding(model_name=model_name)
 
     return await process_files_in_chunks(
-        embedding=embedding, 
-        file_paths=file_paths, 
+        splits_directory=unzip_folder, 
+        model_name=amodel_name,
         chunk_size=chunk_size,
         collection_name=collection_name,
-        persist_directory=persist_directory
+        persist_directory=apersist_directory
     )
+
 
 def create_vector_store(documents, model_name, collection_name, persist_directory) -> Chroma:
     """
@@ -339,7 +360,8 @@ if __name__ == "__main__":
     # Add the arguments
     parser.add_argument(
         '--dir_path', 
-        type=str, help='Root directory where to look for documents.', 
+        type=str, 
+        help='Root directory where to look for documents.', 
         default="."
     )
     parser.add_argument(
@@ -347,10 +369,17 @@ if __name__ == "__main__":
         type=str, 
         help='(Optional) The zip file contains unstructured document splits. If this parameter is specified, --dir_path, --file_types, --file_patterns are ignored.', 
         default=None
+    )    
+    parser.add_argument(
+        '--splits_directory', 
+        type=str, 
+        help='(Optional) The directory with unstructured document splits for createing the vectorestore. If this parameter is specified, --dir_path, --file_types, --file_patterns are ignored.',
+        default=None
     )
     parser.add_argument(
         '--file_types', 
-        type=str, nargs='+', 
+        type=str, 
+        nargs='+', 
         help='(Optional) List of file extensions (without the dot) to find in the specified directory; if the argument is missing, then all supported files are searched.', 
         default=None
     )
@@ -401,6 +430,14 @@ if __name__ == "__main__":
             collection_name=args.collection_name,
             persist_directory=args.persist_directory
         ))
+    elif args.splits_directory:   
+        docs_db = asyncio.run(create_embedding_database_from_splits(
+            splits_directory=args.splits_directory, 
+            model_name=args.model_name,
+            chunk_size=BATCH_SIZE,
+            collection_name=args.collection_name,
+            persist_directory=args.persist_directory
+        ))        
     else:
         if args.file_types is None:
             split_docs = load_supported_documents(args.dir_path) 
@@ -420,16 +457,19 @@ if __name__ == "__main__":
 
     elapsed_time_msg = get_elapse_time_message(start_time=start_time)
 
-    logging.info(f"Finished the creation of vectorsstore creation in {elapsed_time_msg}.")
+    if docs_db is None:
+        logging.info(f"The vectorstore is empty.")
+    else:  
+        logging.info(f"Finished the creation of vectorstore creation in {elapsed_time_msg}.")
 
-    # Test a new vectorstore
-    doc_ids = docs_db.get()["ids"]
-    logging.info(f"The vectorestore stores {len(doc_ids)} documents")
-    
-    if args.test_question is not None:
-        retriever = docs_db.as_retriever()
-        answer = retriever.invoke(args.test_question)
-        logging.info(f"ANSWER: {answer[0].page_content}")
+        # Test a new vectorstore
+        doc_ids = docs_db.get()["ids"]
+        logging.info(f"The vectorstore stores {len(doc_ids)} documents")
+        
+        if args.test_question is not None:
+            retriever = docs_db.as_retriever()
+            answer = retriever.invoke(args.test_question)
+            logging.info(f"ANSWER: {answer[0].page_content}")
 
-    # Optionally, you can print or log the result
-    logging.info(f"The embedding database: {docs_db}")
+        # Optionally, you can print or log the result
+        logging.info(f"The vectorstore: {docs_db}")

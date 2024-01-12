@@ -231,7 +231,6 @@ def load_split_file(text_splitter, file_type, file) -> List[Document]:
           logging.error(f"Failed to process '{file}' with the text splitter '{text_splitter}'; the file will be procesed with TextLoader instead: {str(error)}", exc_info=False)
 
         return TextLoader(file_path=file).load_and_split(text_splitter=text_splitter) 
-        
 
 def load_supported_documents(dir_path) -> List[Document]:
     """
@@ -392,7 +391,6 @@ def load_zip_with_splits(zip_file, unzip_folder=None) -> str:
         zip_ref.extractall(unzip_folder)
 
     return unzip_folder    
-
     
 def get_FileLoaderQuery(file_types, file_patterns) -> FileLoaderQuery:
     # Create a mapping from file type to patterns
