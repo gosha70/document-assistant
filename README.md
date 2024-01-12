@@ -33,12 +33,24 @@ python3 -m embeddings.embedding_database --dir_path ~/ --file_types pdf --persis
 ```
 Where:
 - `--dir_path` - the path to the document folder where desired documents are located  
-- `--file_types`-  one or a few supported file types:
-    - Java: `java`
-    - XML: `xml`
-    - Markdown: `md`
-    - Html: `html`
-    - PDF: `pdf`      
+- `--file_types`-  one or a few supported file types:   
+    - **CSV** = `"csv"`
+    - **DDL** = `"ddl"`
+    - **EXCEL** = `"xlsx"`
+    - **JAVA** = `"java"`
+    - **JS** = `"js"`
+    - **JSON**  = `"json"`
+    - **HTML** = `"html"`
+    - **MARKDOWN** = `"md"`
+    - **PDF** = `"pdf"`
+    - **PYTHON** = `"py"`
+    - **RICH_TEXT** = `"rtf"`
+    - **SQL** = `"sql"`
+    - **TEXT** = `"txt"`
+    - **XML** = `"xml"`
+    - **XSL** = `"xsl"`
+    - **YAML** = `"yaml"`
+           
 - `--persist_director` - the location where a vectorstore will be created; in this example, the vectorstore will be create in the `pdf_db` folder.
 
 2. Run the **D.O.T.** Application with **RAG** based on your vectorstore
@@ -72,10 +84,18 @@ python3 -m embeddings.document_loader --dir_path ~/ --file_types java --persist_
 3. Open the [Colab Notebook](https://github.com/gosha70/document-assistant/blob/main/notebooks/CreateEmbeddingsVectorstore.ipynb) in **Google Colaboratory**
 4. Follow the documentation in the notebook
 
-Similarary, the vector store can be locally created from a zip with document splits:
+Similarary, the vector store can be locally created from document splits:
+
+- From a zip file:
 ```
 python3 -m embeddings.embedding_database --zip_file SPLITS.zip --persist_directory java_db --collection_name JAVA_DB
 ```
+- From a directory with unstructured documents:
+```
+python3 -m embeddings.embedding_database --splits_directory ./splits --persist_directory java_db --collection_name JAVA_DB
+```
+
+##### Manifest
 The `MANIFEST.MF` with the important information about generated vector store can be found in the `META-INF` folder in the specified `persist_director`:
 ```
 Manifest-Version: 1.0
