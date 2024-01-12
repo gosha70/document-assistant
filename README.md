@@ -22,16 +22,41 @@ pip3 install -r requirements.txt
 By default the **AutoGPTQ** (`auto-gptq`) is not installed. Before installing it, please configure the [CUDA](https://www.cs.colostate.edu/~info/cuda-faq.html) environment first. 
 If the installation or execution of **AutoGPTQ** fails, please follow this [workaround](https://huggingface.co/TheBloke/WizardLM-30B-Uncensored-GPTQ).
 
-### Creating Vector Store
+
+### <a name="quickStart">Quick Sstart Guide</a>
+
+#### Create Vector Store 
+1. The first step is the creation vectorstore for your documents. 
+Just scan the document folder and create a vectorstore:
+```
+python3 -m embeddings.embedding_database --dir_path ~/ --file_types pdf --persist_directory pdf_db
+```
+Where:
+- `--dir_path` - the path to the document folder where desired documents are located  
+- `--file_types`-  one or a few supported file types:
+    - Java: `java`
+    - XML: `xml`
+    - Markdown: `md`
+    - Html: `html`
+    - PDF: `pdf`      
+- `--persist_director` - the location where a vectorstore will be created; in this example, the vectorstore will be create in the `pdf_db` folder.
+
+2. Run the **D.O.T.** Application with **RAG** based on your vectorstore
+```
+python3 -m app.chat_app --persist_directory pdf_db --history True
+```
+
+### Detailed Instructions
+#### Creating Vector Store
 See [Chroma](https://api.python.langchain.com/en/latest/vectorstores/langchain_community.vectorstores.chroma.Chroma.html)
 
-#### Seach and Transform Documents to Textual Splits
+##### Seach and Transform Documents to Textual Splits
 See [RecursiveCharacterTextSplitter](https://api.python.langchain.com/en/latest/text_splitter/langchain.text_splitter.RecursiveCharacterTextSplitter.html)
 ```
 python3 -m embeddings.document_loader --dir_path ~/ --file_types java
 ```
 
-#### Creating Vector Store with Embedding
+##### Creating Vector Store with Embedding
 ```
 python3 -m embeddings.embedding_database --dir_path ~/ --file_types pdf --persist_directory pdf_db
 ```
@@ -41,13 +66,7 @@ The vector store can also be created via the [Colab Notebook](https://github.com
 ```
 python3 -m embeddings.document_loader --dir_path ~/ --file_types java --persist_directory java_splits
 ```
-Currently the following file types are supported:
 
-  - Java: `java`
-  - XML: `xml`
-  - Markdown: `md`
-  - Html: `html`
-  - PDF: `pdf`
 
 2. Zip a folder with document splits, and upload that zip to your Google Drive
 3. Open the [Colab Notebook](https://github.com/gosha70/document-assistant/blob/main/notebooks/CreateEmbeddingsVectorstore.ipynb) in **Google Colaboratory**
@@ -68,7 +87,7 @@ Embedding-Model-Name: hkunlp/instructor-large
 ```
 :triangular_flag_on_post: You must remember the `collection name` in order to load the created vector store; the **D.O.T. Application** defaults to `EGOGE_DOCUMENTS_DB`, otherwise the `collection name` must be passed via `--collection_name`.
 
-#### Demo 
+### Demo 
 
 Here is the example of creating the private chat (Q/A) about the Java framework for simulation the `Quantum Computing`; the source for this can be found [here](https://www.manning.com/books/quantum-computing-in-action). 
 
