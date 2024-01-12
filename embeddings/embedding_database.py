@@ -124,7 +124,7 @@ def adjust_batch_size(batch_size, items_count):
     if max_thread > 11:
         batch_size = items_count / 11
 
-    return batch_size    
+    return int(batch_size)    
 
 
 async def process_splits_in_chunks(embedding, documents, chunk_size, collection_name, persist_directory) -> Chroma:
@@ -403,10 +403,10 @@ if __name__ == "__main__":
         ))
     else:
         if args.file_types is None:
-            file_loader_query = get_FileLoaderQuery(args.file_types, args.file_patterns)  
-            split_docs = load_documents(args.dir_path, file_loader_query) 
+            split_docs = load_supported_documents(args.dir_path) 
         else:
-            split_docs = load_supported_documents(args.dir_path)
+            file_loader_query = get_FileLoaderQuery(args.file_types, args.file_patterns)  
+            split_docs = load_documents(args.dir_path, file_loader_query)
         
         docs_db = asyncio.run(create_embedding_database(
             documents=split_docs, 

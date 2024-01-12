@@ -20,3 +20,4 @@ tokenizers==0.13.3
 dash==2.9
 dash_bootstrap_components==1.5.0
 jq==1.6.0
+pypdf==3.17.2
