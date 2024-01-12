@@ -1,5 +1,6 @@
 wrapt==1.14.0 # This version must correspond to astroid version
 astroid==2.12.2
+unstructured==0.12.0
 torch 
 torchvision
 torchaudio
@@ -14,7 +15,6 @@ chromadb==0.4.3
 # auto-gptq # Requires CUDA
 huggingface
 huggingface_hub
-unstructured==0.6.7
 pdf2image==1.16.3
 tokenizers==0.13.3
 dash==2.9
