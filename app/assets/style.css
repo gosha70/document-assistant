@@ -164,4 +164,14 @@ body {
     text-align: left;
     margin-top: 50px;  
     margin-left: 20px;
+} 
+
+.info-button {
+    background-color: transparent;
+    border: none;
+    vertical-align: top;
+}
+
+.info-button-img {
+    height: 20px
 }

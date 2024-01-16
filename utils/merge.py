@@ -1,3 +1,5 @@
+# Copyright (c) EGOGE - All Rights Reserved.
+# This software may be used and distributed according to the terms of the CC-BY-SA-4.0 license.
 import argparse
 from langchain.vectorstores import Chroma
 from embeddings.embeddings_constants import CHROMA_SETTINGS, DEFAULT_COLLECTION_NAME

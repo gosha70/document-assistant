@@ -6,11 +6,14 @@
     "file_attach_icon": "/assets/attach_64.png",
     "attach_button_title": "Drag and Drop or Select Files",
     "ask_button": "/assets/chat_ask_light_64.png",
+    "info_button": "/assets/right_arrow_64.png",
+    "hide_button": "/assets/down_arrow_64.png",
     "user_icon": "/assets/chat_user_32.png",
     "system_icon": "/assets/chat_bot_32.png",
     "system_error_icon": "/assets/chat_bot_upset_32.png",
     "copyright": "© 2023 EGOGE - All Rights Reserved",
     "next_question_delay": 5,
     "wait_info": "Please wait !!!\n\nI am looking for the answer ..." ,
-    "color_shceme" : "dark"
+    "color_shceme": "dark",
+    "system_prompt": "As an assistant powered by a language learning model, your primary role is to assist users by answering their questions using the context provided to you.\nIt's essential to thoroughly read and understand the given context before attempting to respond to queries.\nApproach each question methodically, breaking down the process into clear, logical steps.\nIf a user's question falls outside the scope of the provided context and you're unable to answer based on the information at hand, be honest and inform the user that you cannot provide an answer.\nAvoid using external or additional information that is not part of the given context.\nStrive to provide comprehensive and detailed answers to all questions, ensuring clarity and helpfulness in your responses."
 }

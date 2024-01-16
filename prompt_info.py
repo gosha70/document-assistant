@@ -1,15 +1,7 @@
-
+# Copyright (c) EGOGE - All Rights Reserved.
+# This software may be used and distributed according to the terms of the CC-BY-SA-4.0 license.
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
-
-SYSTEM_PROMPT = """As an assistant powered by a language learning model, 
-your primary role is to assist users by answering their questions using the context provided to you. 
-It's essential to thoroughly read and understand the given context before attempting to respond to queries. 
-Approach each question methodically, breaking down the process into clear, logical steps. 
-If a user's question falls outside the scope of the provided context and you're unable 
-to answer based on the information at hand, be honest and inform the user that you cannot provide an answer. 
-Avoid using external or additional information that is not part of the given context. 
-Strive to provide comprehensive and detailed answers to all questions, ensuring clarity and helpfulness in your responses."""
 
 # Explicitly supported LLMs
 LLAMA_MODEL_NAME="llama"
@@ -27,18 +19,15 @@ The utility relies on PromptTemplate provided by LangChain, see https://python.l
 
 (PromptInfo) fields:
     - system_prompt (str): the system prompt instructions  
-    - template_type (str): the promp template type: 'llama', 'mistral' 
+    - template_type (str): the prompt template type: 'llama', 'mistral' 
     - use_history (bool): the flag indicating if the chat history is on  
 """
 class PromptInfo:
     def __init__(self, system_prompt, template_type, use_history):
-        if system_prompt is not None:
-            self._system_prompt = system_prompt
-        else:    
-            self._system_prompt = SYSTEM_PROMPT
+        self._system_prompt = system_prompt
 
-        if system_prompt is not None:
-            self._template_type = system_prompt
+        if template_type is not None:
+            self._template_type = template_type
         else:    
             self._template_type = LLAMA_MODEL_NAME
 

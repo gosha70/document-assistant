@@ -1,3 +1,5 @@
+# Copyright (c) EGOGE - All Rights Reserved.
+# This software may be used and distributed according to the terms of the CC-BY-SA-4.0 license.
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from .models_constants import DEVICE_MAP

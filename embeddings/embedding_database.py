@@ -1,3 +1,5 @@
+# Copyright (c) EGOGE - All Rights Reserved.
+# This software may be used and distributed according to the terms of the CC-BY-SA-4.0 license.
 import argparse
 import logging
 import asyncio
@@ -13,7 +15,10 @@ from embeddings.embeddings_constants import CHROMA_SETTINGS, DEFAULT_COLLECTION_
 from models.model_info import ModelInfo
 from models.models_constants import DEFAULT_MODEL_NAME
 
-from .document_loader import get_FileLoaderQuery, load_zip_with_splits, load_document_split, load_supported_documents
+from .document_loader import load_zip_with_splits, load_document_split, load_supported_documents
+
+from embeddings.unstructured.file_loader_query import FileLoaderQuery
+from embeddings.unstructured.document_splitter import DocumentSplitter
 
 def create_manifest(collection_name, model_name, persist_directory):
     if persist_directory is None:
@@ -46,7 +51,7 @@ def create_manifest(collection_name, model_name, persist_directory):
     return True    
 
 
-def on_task_completion(future, task_id, completed_tasks):
+def on_task_completion(task_id, completed_tasks):
     # Update the list of completed tasks
     completed_tasks.append(task_id)
     print(f"The async task #{task_id} just finished. Total finished tasks: {len(completed_tasks)}")
@@ -58,6 +63,7 @@ async def wait_for_tasks(docs_db, async_tasks, completed_tasks) -> Chroma:
     Parameters:
     - docs_db (Chroma): the vectorstore
     - async_tasks (List): the collection of isssued async tasks 
+    - completed_tasks (List): the collection of finished async tasks 
 
     Returns:
     - (Chroma): the embedding vectorstore
@@ -76,7 +82,7 @@ async def wait_for_tasks(docs_db, async_tasks, completed_tasks) -> Chroma:
 
     return docs_db
 
-async def process_chunks(docs_db, documents, embedding, collection_name, persist_directory, async_tasks, completed_tasks, task_id) -> Chroma:
+def process_chunks(docs_db, documents, embedding, collection_name, persist_directory, async_tasks, completed_tasks, task_id) -> Chroma:
     """
     Processes the specified chunk of (Documents).
 
@@ -110,11 +116,29 @@ async def process_chunks(docs_db, documents, embedding, collection_name, persist
     else:
         logging.info(f"The async task #{task_id} is updating the embedding vectorstore with {len(documents)} document splits ...")
         async_task = asyncio.create_task(docs_db.aadd_documents(documents=documents))
-        async_task.add_done_callback(lambda future, i=task_id: on_task_completion(future, i, completed_tasks))       
+        async_task.add_done_callback(lambda future, i=task_id: on_task_completion(i, completed_tasks))       
         async_tasks.append(async_task)
 
     return docs_db
 
+def add_file_content_to_db(docs_db: Chroma, document_splitter: DocumentSplitter, file_name: str):
+    """
+    Processes the single file.
+
+    Parameters:
+    - docs_db (Chroma): if the specified vectorstore is None, - syncronously creates one with the specified documents;
+                        otherwise, - asyncronously adds the specified documents to the vectorstore. 
+    - document_splitter (DocumentSplitter): the document splitter                     
+    - file_name (str): the file name
+    """
+    documents = document_splitter.process_file(file_path=file_name)  
+    if documents is not None:  
+        logging.info(f"Updating the embedding vectorstore with {len(documents)} document splits ...")
+        ids = docs_db.add_documents(documents=documents) 
+        if ids:
+            logging.info(f"Saving the vectorstore with new document ids: {ids}")
+            docs_db.persist()
+        
 def adjust_batch_size(batch_size, items_count):
     max_thread = items_count / batch_size
     # Limit to 10 concurrent thread (the first batch is processed synchronously)
@@ -282,10 +306,10 @@ async def create_embedding_database_from_zip(zip_file, model_name, chunk_size, c
 
     return await process_files_in_chunks(
         splits_directory=unzip_folder, 
-        model_name=amodel_name,
+        model_name=model_name,
         chunk_size=chunk_size,
         collection_name=collection_name,
-        persist_directory=apersist_directory
+        persist_directory=persist_directory
     )
 
 
@@ -418,7 +442,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     logging.info(f"Creating the vectorsstore the arguments: {args}")
-    
+    document_splitter = DocumentSplitter(logging)
     # Call the create_vector_store function
     start_time = time.time()
     
@@ -440,9 +464,9 @@ if __name__ == "__main__":
         ))        
     else:
         if args.file_types is None:
-            split_docs = load_supported_documents(args.dir_path) 
+            split_docs = load_supported_documents(document_splitter=document_splitter, dir_path=args.dir_path) 
         else:
-            file_loader_query = get_FileLoaderQuery(args.file_types, args.file_patterns)  
+            file_loader_query = FileLoaderQuery.get_file_loader_query(file_types=args.file_types, file_patterns=args.file_patterns, logging=logging)  
             split_docs = load_documents(args.dir_path, file_loader_query)
         
         docs_db = asyncio.run(create_embedding_database(
@@ -454,9 +478,9 @@ if __name__ == "__main__":
         ))
 
     create_manifest(collection_name=args.collection_name, model_name=args.model_name, persist_directory=args.persist_directory)
-
+     
     elapsed_time_msg = get_elapse_time_message(start_time=start_time)
-
+   
     if docs_db is None:
         logging.info(f"The vectorstore is empty.")
     else:  

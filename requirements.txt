@@ -1,4 +1,9 @@
 wrapt==1.14.0 # This version must correspond to astroid version
+jq==1.6.0
+pyqt5==5.15
+pypdf==3.17.2
+black==22.3.0
+watchdog==2.1.6
 astroid==2.12.2
 unstructured==0.12.0
 torch 
@@ -19,5 +24,3 @@ pdf2image==1.16.3
 tokenizers==0.13.3
 dash==2.9
 dash_bootstrap_components==1.5.0
-jq==1.6.0
-pypdf==3.17.2

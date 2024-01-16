@@ -1,0 +1,128 @@
+body {
+    background: #0D47A1; /* A strong blue background, assuming a gradient isn't desired */
+    color: #FFFFFF; /* White text */
+}
+
+.title-span {
+    color: #BBDEFB; /* A lighter shade of blue for titles */
+}
+
+.subtitle-span {
+    color: #FFFFFF; /* White for subtitles */
+}
+
+.message-input {
+    border: 2px solid #BBDEFB; /* Light blue border */
+    background-color: #FFFFFF; /* White background */
+    color: #0D47A1; /* Text color matching the body background */
+}
+
+.container-style {
+    background-color: #0D47A1; /* Matching the body background */
+}
+
+.chat-datetime {
+    color: #BBDEFB; /* Lighter shade of blue for datetime */
+}
+
+.chat-box {
+    background-color: #1E88FF; /* Lighter blue for chat box */
+    color: #FFFFFF; /* White for chat text */
+    border: 1px solid #BBDEFB; /* Light blue border */
+}
+
+.user-bubble {
+    background-color: #1E88FF; /* Lighter blue for user messages */
+    color: #FFFFFF; /* White for text */
+}
+
+.system-bubble {
+    background-color: #1565C0; /* Medium blue for system messages */
+    color: #E3F2FD; /* Light blue for text */
+}
+
+/* Customizing code text within markdown */
+.chat-message.system-message code {
+    color: #BBDEFB; /* Light blue for code */
+}
+
+.system-error-message {
+    color: #FF6E40; /* Flashy red for error messages, providing contrast */
+}
+
+.chat-top-hr {
+    background-color: #1E88FF; /* Light blue for top horizontal rule */
+}
+
+.chat-bottom-hr {
+    background-color: #1565C0; /* Medium blue for bottom horizontal rule */
+}
+
+.custom-footer-style {
+    color: #FFFFFF; /* White for footer text */
+}
+===Generalize this  blue CSS scheme:
+===
+body {
+    background: #0D47A1; /* A strong blue background, assuming a gradient isn't desired */
+    color: #FFFFFF; /* White text */
+}
+
+.title-span {
+    color: #BBDEFB; /* A lighter shade of blue for titles */
+}
+
+.subtitle-span {
+    color: #FFFFFF; /* White for subtitles */
+}
+
+.message-input {
+    border: 2px solid #BBDEFB; /* Light blue border */
+    background-color: #FFFFFF; /* White background */
+    color: #0D47A1; /* Text color matching the body background */
+}
+
+.container-style {
+    background-color: #0D47A1; /* Matching the body background */
+}
+
+.chat-datetime {
+    color: #BBDEFB; /* Lighter shade of blue for datetime */
+}
+
+.chat-box {
+    background-color: #1E88FF; /* Lighter blue for chat box */
+    color: #FFFFFF; /* White for chat text */
+    border: 1px solid #BBDEFB; /* Light blue border */
+}
+
+.user-bubble {
+    background-color: #1E88FF; /* Lighter blue for user messages */
+    color: #FFFFFF; /* White for text */
+}
+
+.system-bubble {
+    background-color: #1565C0; /* Medium blue for system messages */
+    color: #E3F2FD; /* Light blue for text */
+}
+
+/* Customizing code text within markdown */
+.chat-message.system-message code {
+    color: #BBDEFB; /* Light blue for code */
+}
+
+.system-error-message {
+    color: #FF6E40; /* Flashy red for error messages, providing contrast */
+}
+
+.chat-top-hr {
+    background-color: #1E88FF; /* Light blue for top horizontal rule */
+}
+
+.chat-bottom-hr {
+    background-color: #1565C0; /* Medium blue for bottom horizontal rule */
+}
+
+.custom-footer-style {
+    color: #FFFFFF; /* White for footer text */
+}

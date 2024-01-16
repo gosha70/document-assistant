@@ -1,3 +1,5 @@
+# Copyright (c) EGOGE - All Rights Reserved.
+# This software may be used and distributed according to the terms of the CC-BY-SA-4.0 license.
 import os
 
 CURRENT_DIRECTORY = os.path.dirname(os.path.realpath(__file__))

@@ -1,4 +1,6 @@
 
+# Copyright (c) EGOGE - All Rights Reserved.
+# This software may be used and distributed according to the terms of the CC-BY-SA-4.0 license.
 from langchain.embeddings import HuggingFaceInstructEmbeddings
 from .models_constants import (
     DEFAULT_MODEL_BASENAME, 

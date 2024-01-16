@@ -1,3 +1,5 @@
+# Copyright (c) EGOGE - All Rights Reserved.
+# This software may be used and distributed according to the terms of the CC-BY-SA-4.0 license.
 import logging
 from langchain.chains import RetrievalQA
 from langchain.vectorstores import Chroma
