@@ -119,7 +119,7 @@ class DocumentSplitter:
         
         file_name = file_pattern if file_pattern is not None else "**/*"
         self.logging.info(f"Loading {file_type.get_extension()} with names confirming the name pattern: '{file_name}'")         
-        documents = converter.load_and_split(dir_path=dir_path, file_pattern=file_pattern)                
+        documents = converter.load_and_split_files(dir_path=dir_path, file_pattern=file_pattern)                
         self.logging.info(f"Loaded {len(documents)} {file_type.get_extension()} documents")
         return text_splitter.split_documents(documents)
     
