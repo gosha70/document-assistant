@@ -82,7 +82,7 @@ async def wait_for_tasks(docs_db, async_tasks, completed_tasks) -> Chroma:
 
     return docs_db
 
-def process_chunks(docs_db, documents, embedding, collection_name, persist_directory, async_tasks, completed_tasks, task_id) -> Chroma:
+async def process_chunks(docs_db, documents, embedding, collection_name, persist_directory, async_tasks, completed_tasks, task_id) -> Chroma:
     """
     Processes the specified chunk of (Documents).
 
@@ -467,7 +467,7 @@ if __name__ == "__main__":
             split_docs = load_supported_documents(document_splitter=document_splitter, dir_path=args.dir_path) 
         else:
             file_loader_query = FileLoaderQuery.get_file_loader_query(file_types=args.file_types, file_patterns=args.file_patterns, logging=logging)  
-            split_docs = load_documents(args.dir_path, file_loader_query)
+            split_docs = load_documents(document_splitter=document_splitter, dir_path=args.dir_path, file_loader_query=file_loader_query)
         
         docs_db = asyncio.run(create_embedding_database(
             documents=split_docs, 

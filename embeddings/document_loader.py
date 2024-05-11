@@ -227,7 +227,7 @@ def main():
         split_docs = load_supported_documents(document_splitter, args.dir_path)
     else:
         file_loader_query = FileLoaderQuery.get_file_loader_query(args.file_types, args.file_patterns)    
-        split_docs = load_documents(document_splitter, args.dir_path, file_loader_query)
+        split_docs = load_documents(document_splitter=document_splitter, dir_path=args.dir_path, file_loader_query=file_loader_query)
 
     elapsed_time_msg = get_elapse_time_message(start_time=start_time)
     logging.info(f"Finished the document loading in {elapsed_time_msg}.")

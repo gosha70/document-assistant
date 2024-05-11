@@ -45,7 +45,7 @@ class PdfConverter(BaseFileConverter):
         files = glob.glob(f'{dir_path}{file_pattern}.pdf', recursive=True)
         split_docs = []
         for file_path in files:
-            document = self.load_and_split(file_path)
+            document = self.load_and_split_file(text_splitter=None, file_path=file_path)
             self.log_info(f"PDF splits: {len(document)}") 
             split_docs.extend(document)
         
