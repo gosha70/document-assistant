@@ -1,7 +1,7 @@
 
 # Copyright (c) EGOGE - All Rights Reserved.
 # This software may be used and distributed according to the terms of the CC-BY-SA-4.0 license.
-from langchain.embeddings import HuggingFaceInstructEmbeddings
+from langchain_community.embeddings import HuggingFaceInstructEmbeddings
 from .models_constants import (
     DEFAULT_MODEL_BASENAME, 
     DEFAULT_MODEL_ID,
@@ -75,4 +75,4 @@ class ModelInfo:
         )
     
     def embedding_class():
-        return "langchain.embeddings.HuggingFaceInstructEmbeddings"   
+        return "langchain_community.embeddings.HuggingFaceInstructEmbeddings"   

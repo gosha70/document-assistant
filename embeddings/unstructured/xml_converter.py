@@ -3,7 +3,7 @@
 from typing import List
 from langchain_core.documents.base import Document
 from langchain.text_splitter import TextSplitter
-from langchain.document_loaders import UnstructuredXMLLoader
+from langchain_community.document_loaders import UnstructuredXMLLoader
 
 from .base_file_converter import BaseFileConverter
 from .file_type import FileType

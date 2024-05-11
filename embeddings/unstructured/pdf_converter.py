@@ -3,7 +3,7 @@
 import glob
 from typing import List
 from langchain_core.documents.base import Document
-from langchain.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import TextSplitter
 
 from .base_file_converter import BaseFileConverter

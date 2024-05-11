@@ -2,7 +2,7 @@
 # This software may be used and distributed according to the terms of the CC-BY-SA-4.0 license.
 from typing import List
 from langchain_core.documents.base import Document
-from langchain.document_loaders import UnstructuredHTMLLoader
+from langchain_community.document_loaders import UnstructuredHTMLLoader
 from langchain.text_splitter import (
     Language, 
     TextSplitter

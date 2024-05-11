@@ -3,14 +3,14 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 from langchain_core.documents.base import Document
-from langchain.document_loaders import TextLoader
+from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import (
     Language, 
     RecursiveCharacterTextSplitter,
     TextSplitter
 )
-from langchain.document_loaders.generic import GenericLoader
-from langchain.document_loaders.parsers import LanguageParser
+from langchain_community.document_loaders.generic import GenericLoader
+from langchain_community.document_loaders.parsers import LanguageParser
 from embeddings.embeddings_constants import CHUNK_SIZE, CHUNK_OVERLAP
 from .file_type import FileType
 

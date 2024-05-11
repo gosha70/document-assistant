@@ -6,7 +6,7 @@ from langchain.text_splitter import (
     TextSplitter,
     Language
 )    
-from langchain.document_loaders import UnstructuredMarkdownLoader
+from langchain_community.document_loaders import UnstructuredMarkdownLoader
 
 from .base_file_converter import BaseFileConverter
 from .file_type import FileType

@@ -1,5 +1,6 @@
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, LlamaForCausalLM, LlamaTokenizer
+from langchain_community.llms import LlamaCpp
 
 from .models_constants import (
     DEVICE_MAP, 

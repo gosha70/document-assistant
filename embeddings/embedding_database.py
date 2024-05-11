@@ -6,7 +6,7 @@ import asyncio
 import time
 import os
 from datetime import datetime
-from langchain.vectorstores import Chroma
+from langchain_community.vectorstores import Chroma
 
 from .document_loader import load_documents
 

@@ -3,7 +3,7 @@ import os
 import shutil
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-from langchain.vectorstores import Chroma
+from langchain_community.vectorstores import Chroma
 from embeddings.unstructured.document_splitter import DocumentSplitter
 from embeddings.embedding_database import add_file_content_to_db
 

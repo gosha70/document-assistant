@@ -10,7 +10,7 @@ import base64
 import threading
 import tempfile
 from datetime import datetime
-from langchain.vectorstores import Chroma
+from langchain_community.vectorstores import Chroma
 from dash import html, dcc, Input, Output, State
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc

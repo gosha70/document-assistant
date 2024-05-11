@@ -2,7 +2,7 @@
 # This software may be used and distributed according to the terms of the CC-BY-SA-4.0 license.
 import logging
 from huggingface_hub import hf_hub_download
-from langchain.llms import LlamaCpp
+from langchain_community.llms import LlamaCpp
 
 from .models_constants import (
     N_CTX, 
