@@ -137,7 +137,7 @@ UX of D.O.T. Appicatiion can be easily customized via [App Config JSON](https://
 For example, see how it is done in the demo application for [Quantum Computing Q/A](https://github.com/gosha70/quantum-chat/blob/main/app/app_config.json)
 
 ##### Color Scheme
-The default dark mode color sheme can be switched to the out-of-box color schemes (for example, see how it is done in [Quantum Computing Q/A](https://github.com/gosha70/quantum-chat)).
+The default dark mode color sheme can be switched to the out-of-box color schemes (for example, see how it is done in [Quantum Computing Q/A]([https://github.com/gosha70/quantum-chat](https://github.com/gosha70/quantum-chat/blob/main/src/app_config.json))).
 In order to use a different color scheme, replace `*_color-scheme.css` in the [assets folder](https://github.com/gosha70/document-assistant/tree/main/app/assets) with your `CSS` with overwritten properties, or with one in the [color_schemes folder](https://github.com/gosha70/document-assistant/tree/main/app/color_schemes).
 
 
