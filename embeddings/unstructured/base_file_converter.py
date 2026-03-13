@@ -68,11 +68,11 @@ class BaseFileConverter(ABC):
         """
         return self.language
     
-    def log_info(self, messsage: str):
-        if self.logging is None: 
-            print(messsage)
+    def log_info(self, message: str, **kwargs):
+        if self.logging is None:
+            print(message)
         else:
-            self.logging.info(messsage)
+            self.logging.info(message)
        
     def load_and_split_file(self, text_splitter: TextSplitter, file_path: str) -> List[Document]:
         """

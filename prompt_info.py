@@ -49,7 +49,7 @@ class PromptInfo:
         return self._template_type
 
     @template_type.setter
-    def c(self, value):
+    def template_type(self, value):
         self._template_type = value
 
     @property
@@ -58,7 +58,7 @@ class PromptInfo:
 
     @use_history.setter
     def use_history(self, value):
-        self._use_history = ValueError
+        self._use_history = value
 
     def __str__(self):
         return (f"PromptInfo(system_prompt='{self._system_prompt}', "

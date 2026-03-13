@@ -37,7 +37,7 @@ def create_manifest(collection_name, model_name, persist_directory):
     current_utc_datetime = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z' 
 
     # Manifest content
-    manifest_content = f"""Manifest-Version: 1.0\nCreated-On: {current_utc_datetime}\nCreated-By: EGOGE (https://github.com/gosha70/document-assistant)\nCollectio-Name: {collection_name}\nEmbedding-Class: {ModelInfo.embedding_class()}\nEmbedding-Model-Name: {model_name}
+    manifest_content = f"""Manifest-Version: 1.0\nCreated-On: {current_utc_datetime}\nCreated-By: EGOGE (https://github.com/gosha70/document-assistant)\nCollection-Name: {collection_name}\nEmbedding-Class: {ModelInfo.embedding_class()}\nEmbedding-Model-Name: {model_name}
     """
 
     if not os.path.exists(meta_inf_path):
@@ -304,9 +304,18 @@ async def create_embedding_database_from_zip(zip_file, model_name, chunk_size, c
         logging.warning(f"Cannot create an embedding database from empty zip: {zip_file}")  
         return None  
 
+    embedding = ModelInfo.create_embedding(model_name=model_name)
+
+    # Collect all file paths from the unzipped folder
+    file_paths = []
+    for dirpath, dirnames, filenames in os.walk(unzip_folder):
+        for file_name in filenames:
+            full_path = os.path.join(dirpath, file_name)
+            file_paths.append(full_path)
+
     return await process_files_in_chunks(
-        splits_directory=unzip_folder, 
-        model_name=model_name,
+        embedding=embedding,
+        file_paths=file_paths,
         chunk_size=chunk_size,
         collection_name=collection_name,
         persist_directory=persist_directory
@@ -331,8 +340,8 @@ def create_vector_store(documents, model_name, collection_name, persist_director
     if documents:
         # Create embeddings and database
         return asyncio.run(create_embedding_database(
-            documents=split_docs, 
-            model_name=model_name, 
+            documents=documents,
+            model_name=model_name,
             chunk_size=BATCH_SIZE,
             collection_name=collection_name,
             persist_directory=persist_directory

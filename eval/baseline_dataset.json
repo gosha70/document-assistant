@@ -1,0 +1,12 @@
+{
+  "version": "0.1.0",
+  "description": "Baseline evaluation dataset for Document Assistant. Add project-specific Q/A/context triples as the corpus grows.",
+  "metadata": {
+    "created": "2026-03-12",
+    "embedding_model": "hkunlp/instructor-large",
+    "chunk_size": 1000,
+    "chunk_overlap": 200,
+    "splitter": "RecursiveCharacterTextSplitter"
+  },
+  "samples": []
+}

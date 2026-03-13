@@ -1,0 +1,50 @@
+{
+  "version": "0.1.0",
+  "phase": "Phase 0 — Baseline (schema only)",
+  "timestamp": "2026-03-12",
+  "status": "INCOMPLETE — system config and compatibility captured; retrieval/generation/latency metrics require a representative corpus and running eval harness (RAGAS/DeepEval). Populate these after ingesting a project-specific dataset.",
+  "system": {
+    "embedding_model": "hkunlp/instructor-large",
+    "embedding_class": "langchain_community.embeddings.HuggingFaceInstructEmbeddings",
+    "chunk_size_chars": 1000,
+    "chunk_overlap_chars": 200,
+    "splitter": "RecursiveCharacterTextSplitter",
+    "vector_store": "Chroma",
+    "llm_default": "TheBloke/Llama-2-7b-Chat-GGUF",
+    "chain_type": "stuff",
+    "langchain_version": "0.2.5",
+    "langchain_chroma_version": "0.1.2"
+  },
+  "compatibility": {
+    "chroma_persistence": "sqlite3-backed (chroma.sqlite3)",
+    "collection_default_name": "EGOGE_DOCUMENTS_DB",
+    "reindex_source": "Original source files (not old vectors)",
+    "notes": "Existing persisted collections use hkunlp/instructor-large embeddings. Switching embedding model requires full reindex from source files."
+  },
+  "metrics": {
+    "status": "NOT YET CAPTURED — requires: (1) a representative corpus ingested into Chroma, (2) 20-50 labeled Q/A/context triples in baseline_dataset.json, (3) running RAGAS eval harness. All values below are placeholders.",
+    "retrieval": {
+      "recall_at_5": null,
+      "precision_at_5": null,
+      "mrr": null
+    },
+    "generation": {
+      "faithfulness": null,
+      "answer_relevancy": null,
+      "context_precision": null
+    },
+    "latency": {
+      "retrieval_p50_ms": null,
+      "generation_p50_ms": null,
+      "e2e_p50_ms": null
+    }
+  },
+  "bugs_fixed_phase1": [
+    "prompt_info.py:52 — setter named c() renamed to template_type()",
+    "prompt_info.py:61 — assigned ValueError class instead of value parameter",
+    "embedding_database.py:40 — typo Collectio-Name fixed to Collection-Name",
+    "embedding_database.py:334 — undefined split_docs replaced with documents parameter",
+    "embedding_database.py:307 — create_embedding_database_from_zip passed wrong kwargs to process_files_in_chunks",
+    "base_file_converter.py:71 — log_info() did not accept **kwargs, causing TypeError in converter fallback paths"
+  ]
+}

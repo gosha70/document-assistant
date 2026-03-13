@@ -4,3 +4,8 @@ model_cache/*
 /.claude
 /659e79ce-1012-4c48-8c7a-fb40198fd029
 chroma.sqlite3
+.venv/
+*.egg-info/
+dist/
+.pytest_cache/
+.ruff_cache/
