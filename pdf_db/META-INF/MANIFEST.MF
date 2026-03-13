@@ -1,0 +1,7 @@
+Manifest-Version: 1.0
+Created-On: 2024-07-27T15:52:23.917Z
+Created-By: EGOGE (https://github.com/gosha70/document-assistant)
+Collectio-Name: EGOGE_DOCUMENTS_DB
+Embedding-Class: langchain_community.embeddings.HuggingFaceInstructEmbeddings
+Embedding-Model-Name: hkunlp/instructor-large
+    

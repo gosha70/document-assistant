@@ -17,7 +17,7 @@ BATCH_SIZE = 300
 
 # Chroma settings
 CHROMA_SETTINGS = Settings(
-    anonymized_telemetry=False,
+    anonymized_telemetry=False, # A telemetry feature that collects anonymous usage information
     is_persistent=True,
 )
 
