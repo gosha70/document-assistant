@@ -1,0 +1,66 @@
+app:
+  name: "Document Assistant (D.O.T.)"
+  host: "127.0.0.1"
+  port: 8000
+  debug: false
+
+embedding:
+  model_name: "hkunlp/instructor-large"
+  device: "cpu"
+  normalize_embeddings: true
+
+chunking:
+  chunk_size: 1000
+  chunk_overlap: 200
+  batch_size: 300
+
+model:
+  default_model_name: "hkunlp/instructor-large"
+  default_model_id: "TheBloke/Llama-2-7b-Chat-GGUF"
+  default_model_basename: "llama-2-7b-chat.Q4_K_M.gguf"
+  n_ctx: 6144
+  n_batch: 512
+  n_gpu_layers: 40
+  cache_dir: "./model_cache/"
+
+vectorstore:
+  backend: "chroma"
+  collection_name: "EGOGE_DOCUMENTS_DB"
+  persist_directory: null
+  chroma_anonymized_telemetry: false
+
+upload:
+  max_file_size_mb: 50
+  allowed_extensions:
+    - csv
+    - ddl
+    - xlsx
+    - java
+    - js
+    - json
+    - html
+    - md
+    - pdf
+    - py
+    - rtf
+    - sql
+    - txt
+    - xml
+    - xsl
+    - yaml
+
+auth:
+  enabled: false
+  admin_token: null
+
+system_prompt: >
+  As an assistant powered by a language learning model, your primary role is to
+  assist users by answering their questions using the context provided to you.
+  It's essential to thoroughly read and understand the given context before
+  attempting to respond to queries. Approach each question methodically, breaking
+  down the process into clear, logical steps. If a user's question falls outside
+  the scope of the provided context and you're unable to answer based on the
+  information at hand, be honest and inform the user that you cannot provide an
+  answer. Avoid using external or additional information that is not part of the
+  given context. Strive to provide comprehensive and detailed answers to all
+  questions, ensuring clarity and helpfulness in your responses.

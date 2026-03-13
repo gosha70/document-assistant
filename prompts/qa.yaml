@@ -1,0 +1,53 @@
+name: qa
+description: Question-answering prompt templates for chat
+version: "1.0"
+
+input_variables:
+  - context
+  - question
+
+templates:
+  llama: >-
+    <s>[INST] <<SYS>>
+    {system_prompt}
+    <</SYS>>
+
+    Context: {context}
+    User: {question} [/INST]
+
+  llama_history: >-
+    <s>[INST] <<SYS>>
+    {system_prompt}
+    <</SYS>>
+
+    Context: {history}
+    {context}
+    User: {question} [/INST]
+
+  mistral: >-
+    <s>[INST] {system_prompt}
+
+    Context: {context}
+    User: {question} [/INST]
+
+  mistral_history: >-
+    <s>[INST] {system_prompt}
+
+    Context: {history}
+    {context}
+    User: {question} [/INST]
+
+  generic: >-
+    {system_prompt}
+
+    Context: {context}
+    User: {question}
+    Answer:
+
+  generic_history: >-
+    {system_prompt}
+
+    Context: {history}
+    {context}
+    User: {question}
+    Answer:
