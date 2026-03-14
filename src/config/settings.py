@@ -57,6 +57,15 @@ class ModelSettings(BaseModel):
     cache_dir: str
 
 
+class LLMSettings(BaseModel):
+    backend: str
+    model: Optional[str]
+    base_url: Optional[str]
+    api_key: Optional[str]
+    temperature: float
+    max_tokens: int
+
+
 class VectorStoreSettings(BaseModel):
     backend: str
     collection_name: str
@@ -96,6 +105,7 @@ class Settings(BaseModel):
     reranker: RerankerSettings
     chunking: ChunkingSettings
     model: ModelSettings
+    llm: LLMSettings
     vectorstore: VectorStoreSettings
     upload: UploadSettings
     auth: AuthSettings

@@ -70,16 +70,57 @@ def _create_reranker(settings):
 
 
 def _create_llm(settings):
-    """Create the LLM using the existing model loading infrastructure."""
-    from models.model_info import ModelInfo
-    from retrieval_qa import create_model
+    """Create the LLM based on config.
 
-    model_info = ModelInfo()
-    model_info.model_name = settings.model.default_model_name
-    model_info.model_id = settings.model.default_model_id
-    model_info.model_basename = settings.model.default_model_basename
+    Supported backends:
+      - "legacy": existing GGUF/GPTQ/AWQ loaders via retrieval_qa.create_model
+      - "openai": OpenAI-compatible API (works with any OpenAI-compatible server)
+      - "ollama": Ollama local server (uses OpenAI-compatible endpoint)
+    """
+    backend = settings.llm.backend
 
-    return create_model(model_info)
+    if backend == "legacy":
+        from models.model_info import ModelInfo
+        from retrieval_qa import create_model
+
+        model_info = ModelInfo()
+        model_info.model_name = settings.model.default_model_name
+        model_info.model_id = settings.model.default_model_id
+        model_info.model_basename = settings.model.default_model_basename
+
+        return create_model(model_info)
+
+    elif backend == "openai":
+        from langchain_openai import ChatOpenAI
+
+        kwargs = {
+            "model": settings.llm.model,
+            "temperature": settings.llm.temperature,
+            "max_tokens": settings.llm.max_tokens,
+        }
+        if settings.llm.base_url:
+            kwargs["base_url"] = settings.llm.base_url
+        if settings.llm.api_key:
+            kwargs["api_key"] = settings.llm.api_key
+
+        return ChatOpenAI(**kwargs)
+
+    elif backend == "ollama":
+        from langchain_openai import ChatOpenAI
+
+        base_url = settings.llm.base_url or "http://localhost:11434/v1"
+        model = settings.llm.model or "llama3.2"
+
+        return ChatOpenAI(
+            model=model,
+            base_url=base_url,
+            api_key=settings.llm.api_key or "ollama",
+            temperature=settings.llm.temperature,
+            max_tokens=settings.llm.max_tokens,
+        )
+
+    else:
+        raise ValueError(f"Unknown LLM backend: '{backend}'. Supported: legacy, openai, ollama")
 
 
 @asynccontextmanager

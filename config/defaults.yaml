@@ -31,6 +31,14 @@ model:
   n_gpu_layers: 40
   cache_dir: "./model_cache/"
 
+llm:
+  backend: "legacy"
+  model: null
+  base_url: null
+  api_key: null
+  temperature: 0.2
+  max_tokens: 512
+
 vectorstore:
   backend: "chroma"
   collection_name: "EGOGE_DOCUMENTS_DB"

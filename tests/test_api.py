@@ -125,6 +125,44 @@ class TestChatEndpoint:
         assert resp.status_code == 422
 
 
+class TestChatStreamEndpoint:
+    def test_stream_no_llm_returns_503(self, client):
+        resp = client.post("/chat/stream", json={"question": "What is Python?"})
+        assert resp.status_code == 503
+
+    def test_stream_no_documents_returns_empty(self, client, mock_backend):
+        mock_backend.hybrid_search.return_value = []
+        mock_llm = MagicMock()
+        deps._llm = mock_llm
+        resp = client.post("/chat/stream", json={"question": "What is Python?"})
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/event-stream")
+        body = resp.text
+        assert "No relevant documents" in body
+        assert "[DONE]" in body
+
+    def test_stream_returns_tokens_and_sources(self, client, mock_backend):
+        from langchain_core.documents import Document
+
+        mock_backend.hybrid_search.return_value = [
+            Document(page_content="Python is great.", metadata={"source": "intro.txt", "page": 1}),
+        ]
+        mock_llm = MagicMock()
+        mock_llm.invoke.return_value = "Python is a programming language."
+        # No .stream attribute, so generator falls back to invoke
+        if hasattr(mock_llm, "stream"):
+            del mock_llm.stream
+        deps._llm = mock_llm
+
+        resp = client.post("/chat/stream", json={"question": "What is Python?"})
+        assert resp.status_code == 200
+        body = resp.text
+        assert "token" in body
+        assert "sources" in body
+        assert "intro.txt" in body
+        assert "[DONE]" in body
+
+
 class TestAdminEndpoints:
     def test_list_collections(self, client):
         resp = client.get("/admin/collections")
@@ -197,6 +235,69 @@ class TestBackendFactory:
         with patch("src.rag.embeddings.InstructorEmbeddingAdapter"):
             with pytest.raises(ValueError, match="Unknown vectorstore backend"):
                 _create_backend(settings)
+
+
+class TestLLMFactory:
+    def test_openai_backend(self):
+        import sys
+        mock_module = MagicMock()
+        mock_chat_cls = MagicMock()
+        mock_module.ChatOpenAI = mock_chat_cls
+        with patch.dict(sys.modules, {"langchain_openai": mock_module}):
+            from importlib import reload
+            import src.api.main as main_mod
+            reload(main_mod)
+
+            settings = MagicMock()
+            settings.llm.backend = "openai"
+            settings.llm.model = "gpt-4o"
+            settings.llm.base_url = None
+            settings.llm.api_key = "test-key"
+            settings.llm.temperature = 0.2
+            settings.llm.max_tokens = 512
+
+            main_mod._create_llm(settings)
+            mock_chat_cls.assert_called_once_with(
+                model="gpt-4o",
+                temperature=0.2,
+                max_tokens=512,
+                api_key="test-key",
+            )
+
+    def test_ollama_backend_defaults(self):
+        import sys
+        mock_module = MagicMock()
+        mock_chat_cls = MagicMock()
+        mock_module.ChatOpenAI = mock_chat_cls
+        with patch.dict(sys.modules, {"langchain_openai": mock_module}):
+            from importlib import reload
+            import src.api.main as main_mod
+            reload(main_mod)
+
+            settings = MagicMock()
+            settings.llm.backend = "ollama"
+            settings.llm.model = None
+            settings.llm.base_url = None
+            settings.llm.api_key = None
+            settings.llm.temperature = 0.2
+            settings.llm.max_tokens = 512
+
+            main_mod._create_llm(settings)
+            mock_chat_cls.assert_called_once_with(
+                model="llama3.2",
+                base_url="http://localhost:11434/v1",
+                api_key="ollama",
+                temperature=0.2,
+                max_tokens=512,
+            )
+
+    def test_unknown_llm_backend_raises(self):
+        from src.api.main import _create_llm
+
+        settings = MagicMock()
+        settings.llm.backend = "unknown"
+        with pytest.raises(ValueError, match="Unknown LLM backend"):
+            _create_llm(settings)
 
 
 class TestAuthMiddleware:

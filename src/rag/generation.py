@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Any
+from typing import Any, Iterator
 
 import yaml
 from pathlib import Path
@@ -82,21 +82,65 @@ class Generator:
 
         settings = get_settings()
         start = time.monotonic()
-        answer = self._llm.invoke(formatted)
+        raw_answer = self._llm.invoke(formatted)
         latency = time.monotonic() - start
 
-        answer_str = str(answer)
+        answer = raw_answer.content if hasattr(raw_answer, "content") else str(raw_answer)
         if settings.telemetry.enabled and settings.telemetry.log_llm_calls:
-            get_metrics_collector().record_llm_call(latency, len(formatted), len(answer_str))
-            logger.info(f"LLM response in {latency:.2f}s ({len(answer_str)} chars)")
+            get_metrics_collector().record_llm_call(latency, len(formatted), len(answer))
+            logger.info(f"LLM response in {latency:.2f}s ({len(answer)} chars)")
 
-        sources = []
-        for doc in documents:
-            source_entry = {
+        sources = self.extract_sources(documents)
+        return {"answer": answer, "sources": sources}
+
+    def generate_stream(
+        self,
+        query: str,
+        documents: list[Document],
+        history: str = "",
+    ) -> Iterator[str]:
+        """Stream answer tokens. Yields individual text chunks.
+
+        Requires an LLM that supports .stream() (e.g. ChatOpenAI).
+        Falls back to non-streaming invoke if .stream() is not available.
+        """
+        context = "\n\n".join(doc.page_content for doc in documents)
+
+        prompt_kwargs = {"context": context, "question": query, "system_prompt": self._system_prompt}
+        if self._use_history:
+            prompt_kwargs["history"] = history
+
+        formatted = self._prompt.format(**prompt_kwargs)
+        logger.info(f"Streaming answer for query (prompt length: {len(formatted)} chars)")
+
+        settings = get_settings()
+        start = time.monotonic()
+        output_length = 0
+
+        if hasattr(self._llm, "stream"):
+            for chunk in self._llm.stream(formatted):
+                token = chunk.content if hasattr(chunk, "content") else str(chunk)
+                output_length += len(token)
+                yield token
+        else:
+            raw_answer = self._llm.invoke(formatted)
+            token = raw_answer.content if hasattr(raw_answer, "content") else str(raw_answer)
+            output_length = len(token)
+            yield token
+
+        latency = time.monotonic() - start
+        if settings.telemetry.enabled and settings.telemetry.log_llm_calls:
+            get_metrics_collector().record_llm_call(latency, len(formatted), output_length)
+            logger.info(f"LLM stream completed in {latency:.2f}s ({output_length} chars)")
+
+    @staticmethod
+    def extract_sources(documents: list[Document]) -> list[dict]:
+        """Extract source citations from documents."""
+        return [
+            {
                 "file": doc.metadata.get("source", "unknown"),
                 "page": doc.metadata.get("page"),
                 "excerpt": doc.page_content[:200],
             }
-            sources.append(source_entry)
-
-        return {"answer": answer, "sources": sources}
+            for doc in documents
+        ]
