@@ -69,10 +69,10 @@ class ModelInfo:
         if model_name is None:
             model_name = DEFAULT_MODEL_NAME
         return HuggingFaceInstructEmbeddings(
-            model_name=model_name, 
-            model_kwargs=EMBEDDING_KWARGS, 
+            model_name=model_name,
+            model_kwargs=EMBEDDING_KWARGS,
             encode_kwargs=ENCODE_KWARG
         )
-    
+
     def embedding_class():
         return "langchain_community.embeddings.HuggingFaceInstructEmbeddings"   

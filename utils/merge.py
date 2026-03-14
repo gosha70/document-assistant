@@ -1,7 +1,7 @@
 # Copyright (c) EGOGE - All Rights Reserved.
 # This software may be used and distributed according to the terms of the CC-BY-SA-4.0 license.
 import argparse
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from embeddings.embeddings_constants import CHROMA_SETTINGS, DEFAULT_COLLECTION_NAME
 from models.model_info import ModelInfo
 
@@ -33,8 +33,6 @@ def main(args):
         documents=from_db_data['documents'],
         ids=from_db_data['ids']
     )
-    to_docs_db.persist()
-
     print(f"After the merge, the target vectorestore stores {len(to_docs_db.get()['ids'])} documents")
 
 if __name__ == "__main__":

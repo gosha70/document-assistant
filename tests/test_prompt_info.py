@@ -73,10 +73,22 @@ class TestPromptTemplateGeneration:
         assert "question" in prompt.input_variables
         assert "Answer:" in prompt.template
 
-    def test_memory_is_returned(self):
+    def test_memory_is_returned_when_history_enabled(self):
         pi = PromptInfo("test", LLAMA_MODEL_NAME, True)
         prompt, memory = pi.get_prompt_template()
         assert memory is not None
+
+    def test_memory_is_base_memory_subclass_when_history_enabled(self):
+        """Memory must be a BaseMemory subclass for RetrievalQA compatibility."""
+        from langchain_core.memory import BaseMemory
+        pi = PromptInfo("test", LLAMA_MODEL_NAME, True)
+        prompt, memory = pi.get_prompt_template()
+        assert isinstance(memory, BaseMemory)
+
+    def test_memory_is_none_when_history_disabled(self):
+        pi = PromptInfo("test", LLAMA_MODEL_NAME, False)
+        prompt, memory = pi.get_prompt_template()
+        assert memory is None
 
     def test_str_representation(self):
         pi = PromptInfo("test", LLAMA_MODEL_NAME, False)

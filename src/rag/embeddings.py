@@ -24,7 +24,12 @@ class EmbeddingAdapter(ABC):
 
 
 class InstructorEmbeddingAdapter(EmbeddingAdapter):
-    """Adapter wrapping HuggingFaceInstructEmbeddings (current default)."""
+    """Adapter wrapping HuggingFaceInstructEmbeddings for instruction-tuned models.
+
+    Instructor models (e.g. hkunlp/instructor-large) require instruction prefixes
+    on each embedding call. HuggingFaceInstructEmbeddings handles this;
+    the generic HuggingFaceEmbeddings does not, producing incompatible vectors.
+    """
 
     def __init__(
         self,
@@ -36,6 +41,41 @@ class InstructorEmbeddingAdapter(EmbeddingAdapter):
 
         self._model_name = model_name
         self._embeddings = HuggingFaceInstructEmbeddings(
+            model_name=model_name,
+            model_kwargs={"device": device},
+            encode_kwargs={"normalize_embeddings": normalize_embeddings},
+        )
+
+    @property
+    def model_name(self) -> str:
+        return self._model_name
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return self._embeddings.embed_documents(texts)
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._embeddings.embed_query(text)
+
+    def get_langchain_embeddings(self):
+        return self._embeddings
+
+
+class HuggingFaceEmbeddingAdapter(EmbeddingAdapter):
+    """Adapter wrapping HuggingFaceEmbeddings from langchain-huggingface.
+
+    For non-instruction models (e.g. BAAI/bge-small-en, sentence-transformers/*).
+    """
+
+    def __init__(
+        self,
+        model_name: str,
+        device: str = "cpu",
+        normalize_embeddings: bool = True,
+    ):
+        from langchain_huggingface import HuggingFaceEmbeddings
+
+        self._model_name = model_name
+        self._embeddings = HuggingFaceEmbeddings(
             model_name=model_name,
             model_kwargs={"device": device},
             encode_kwargs={"normalize_embeddings": normalize_embeddings},

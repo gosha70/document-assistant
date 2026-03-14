@@ -5,7 +5,7 @@ import logging
 import asyncio
 import time
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from langchain_chroma import Chroma
 
 from .document_loader import load_documents
@@ -34,7 +34,7 @@ def create_manifest(collection_name, model_name, persist_directory):
     manifest_file_path = os.path.join(meta_inf_path, 'MANIFEST.MF')
     
     # Get current UTC time and format it
-    current_utc_datetime = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z' 
+    current_utc_datetime = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z' 
 
     # Manifest content
     manifest_content = f"""Manifest-Version: 1.0\nCreated-On: {current_utc_datetime}\nCreated-By: EGOGE (https://github.com/gosha70/document-assistant)\nCollection-Name: {collection_name}\nEmbedding-Class: {ModelInfo.embedding_class()}\nEmbedding-Model-Name: {model_name}
@@ -74,11 +74,6 @@ async def wait_for_tasks(docs_db, async_tasks, completed_tasks) -> Chroma:
         logging.info(f"Waiting for {in_progress_tasks} async tasks to finish ...")
         await asyncio.gather(*async_tasks)
         logging.info(f"All {len(async_tasks)} async tasks finished.")
-
-    # Save the Chroma database after processing all chunks
-    if docs_db is not None:
-        logging.info("Saving the vectorstore ...")
-        docs_db.persist()
 
     return docs_db
 
@@ -136,8 +131,7 @@ def add_file_content_to_db(docs_db: Chroma, document_splitter: DocumentSplitter,
         logging.info(f"Updating the embedding vectorstore with {len(documents)} document splits ...")
         ids = docs_db.add_documents(documents=documents) 
         if ids:
-            logging.info(f"Saving the vectorstore with new document ids: {ids}")
-            docs_db.persist()
+            logging.info(f"Added {len(ids)} document ids to the vectorstore")
         
 def adjust_batch_size(batch_size, items_count):
     max_thread = items_count / batch_size

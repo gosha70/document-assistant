@@ -1,6 +1,6 @@
 # Copyright (c) EGOGE - All Rights Reserved.
 # This software may be used and distributed according to the terms of the CC-BY-SA-4.0 license.
-from langchain.memory import ConversationBufferMemory
+import warnings
 from langchain.prompts import PromptTemplate
 
 # Explicitly supported LLMs
@@ -94,7 +94,13 @@ class PromptInfo:
         else:
             prompt = PromptTemplate(input_variables=["context", "question"], template=prompt_template)
 
-        memory = ConversationBufferMemory(input_key="question", memory_key="history")
+        if self._use_history:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", DeprecationWarning)
+                from langchain.memory import ConversationBufferMemory
+                memory = ConversationBufferMemory(input_key="question", memory_key="history")
+        else:
+            memory = None
 
         return (
             prompt,
