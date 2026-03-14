@@ -54,6 +54,10 @@ auth:
   enabled: false
   admin_token: null
 
+telemetry:
+  enabled: true
+  log_llm_calls: true
+
 system_prompt: >
   As an assistant powered by a language learning model, your primary role is to
   assist users by answering their questions using the context provided to you.

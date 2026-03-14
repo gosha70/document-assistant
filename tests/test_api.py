@@ -20,6 +20,7 @@ def _create_test_app():
     from src.api.main import create_app as _real_create
     from fastapi.middleware.cors import CORSMiddleware
     from src.api.middleware.auth import AuthMiddleware
+    from src.api.middleware.telemetry import TelemetryMiddleware
     from src.api.routes import chat, ingest, status, admin
     from src.config.settings import get_settings
 
@@ -27,6 +28,7 @@ def _create_test_app():
     app = FastAPI(title=settings.app.name, lifespan=noop_lifespan)
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
     app.add_middleware(AuthMiddleware)
+    app.add_middleware(TelemetryMiddleware)
     app.include_router(chat.router)
     app.include_router(ingest.router)
     app.include_router(status.router)
@@ -152,13 +154,27 @@ class TestAdminEndpoints:
         resp = client.get("/admin/jobs/nonexistent")
         assert resp.status_code == 404
 
-    def test_metrics_stub(self, client):
+    def test_metrics_runtime(self, client):
         resp = client.get("/admin/metrics/runtime")
         assert resp.status_code == 200
+        data = resp.json()
+        assert "application" in data
+        assert "process" in data
+        assert "uptime_seconds" in data["application"]
+        assert "request_count" in data["application"]
+        assert "llm_call_count" in data["application"]
+        assert "memory_rss_mb" in data["process"]
+        # request_count should be > 0 since the middleware counts this request
+        assert data["application"]["request_count"] > 0
 
-    def test_reports_stub(self, client):
+    def test_reports_summary(self, client):
         resp = client.get("/admin/reports/summary")
         assert resp.status_code == 200
+        data = resp.json()
+        assert "total_requests" in data
+        assert "total_errors" in data
+        assert "uptime_seconds" in data
+        assert data["total_requests"] > 0
 
 
     def test_get_nonexistent_collection_returns_404(self, client, mock_backend):

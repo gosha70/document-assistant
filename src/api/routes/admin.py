@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from src.api.schemas import CollectionInfo, JobInfo
 from src.api.deps import get_vectorstore_backend
 from src.config.settings import get_settings
+from src.utils.metrics import get_metrics_collector
 
 logger = logging.getLogger(__name__)
 
@@ -95,11 +96,32 @@ def cancel_job(job_id: str):
 
 @router.get("/metrics/runtime")
 def get_runtime_metrics():
-    """Live runtime metrics. Populated in Phase 4."""
-    return {"status": "not_yet_implemented", "phase": 4}
+    """Live runtime metrics: application stats + process stats."""
+    settings = get_settings()
+    if not settings.telemetry.enabled:
+        return {"status": "disabled", "message": "Telemetry is disabled in configuration"}
+
+    collector = get_metrics_collector()
+    return {
+        "application": collector.get_stats(),
+        "process": collector.get_process_stats(),
+    }
 
 
 @router.get("/reports/summary")
 def get_summary_report():
-    """Summary report. Populated in Phase 4/10."""
-    return {"status": "not_yet_implemented", "phase": 10}
+    """Summary report. Aggregation store wired in Phase 9/10."""
+    settings = get_settings()
+    if not settings.telemetry.enabled:
+        return {"status": "disabled", "message": "Telemetry is disabled in configuration"}
+
+    collector = get_metrics_collector()
+    stats = collector.get_stats()
+    return {
+        "total_requests": stats["request_count"],
+        "total_errors": stats["error_count"],
+        "total_llm_calls": stats["llm_call_count"],
+        "total_docs_ingested": stats["ingest_total_docs"],
+        "uptime_seconds": stats["uptime_seconds"],
+        "note": "Durable aggregation and scheduled reporting in Phase 9/10",
+    }

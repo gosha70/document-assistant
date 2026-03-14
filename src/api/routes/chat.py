@@ -1,8 +1,11 @@
 import logging
+import time
 from fastapi import APIRouter, HTTPException
 
 from src.api.schemas import ChatRequest, ChatResponse, SourceCitation
 from src.api.deps import get_retriever, get_generator
+from src.config.settings import get_settings
+from src.utils.metrics import get_metrics_collector
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +25,14 @@ def chat(request: ChatRequest):
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
 
+    settings = get_settings()
+    metrics = get_metrics_collector() if settings.telemetry.enabled else None
+
     try:
+        start = time.monotonic()
         documents = retriever.retrieve(request.question)
+        if metrics:
+            metrics.record_retrieval(time.monotonic() - start)
 
         if not documents:
             return ChatResponse(answer="No relevant documents found for your question.", sources=[])

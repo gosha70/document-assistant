@@ -1,10 +1,14 @@
 import logging
+import time
 from typing import Any
 
 import yaml
 from pathlib import Path
 from langchain_core.documents import Document
 from langchain.prompts import PromptTemplate
+
+from src.config.settings import get_settings
+from src.utils.metrics import get_metrics_collector
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +80,15 @@ class Generator:
         formatted = self._prompt.format(**prompt_kwargs)
         logger.info(f"Generating answer for query (prompt length: {len(formatted)} chars)")
 
+        settings = get_settings()
+        start = time.monotonic()
         answer = self._llm.invoke(formatted)
+        latency = time.monotonic() - start
+
+        answer_str = str(answer)
+        if settings.telemetry.enabled and settings.telemetry.log_llm_calls:
+            get_metrics_collector().record_llm_call(latency, len(formatted), len(answer_str))
+            logger.info(f"LLM response in {latency:.2f}s ({len(answer_str)} chars)")
 
         sources = []
         for doc in documents:

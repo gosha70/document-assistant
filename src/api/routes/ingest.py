@@ -11,6 +11,7 @@ from src.api.middleware.upload import validate_upload
 from src.api.deps import get_vectorstore_backend
 from src.config.settings import get_settings
 from src.rag.chunking import get_text_splitter
+from src.utils.metrics import get_metrics_collector
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,9 @@ async def ingest_files(
                 logger.info(f"Ingested {len(documents)} chunks from '{file.filename}'")
         finally:
             os.unlink(tmp_path)
+
+    if total_docs > 0 and settings.telemetry.enabled:
+        get_metrics_collector().record_ingest(total_docs)
 
     return IngestResponse(
         message=f"Ingested {total_docs} document chunks from {len(files)} file(s)",

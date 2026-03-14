@@ -38,6 +38,7 @@ huggingface-hub = "*"
 sentence-transformers = "*"
 InstructorEmbedding = "*"
 pypdf = "*"
+psutil = "^5.9"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"

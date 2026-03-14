@@ -66,6 +66,11 @@ class AuthSettings(BaseModel):
     admin_token: Optional[str]
 
 
+class TelemetrySettings(BaseModel):
+    enabled: bool
+    log_llm_calls: bool
+
+
 class AppSettings(BaseModel):
     name: str
     host: str
@@ -81,6 +86,7 @@ class Settings(BaseModel):
     vectorstore: VectorStoreSettings
     upload: UploadSettings
     auth: AuthSettings
+    telemetry: TelemetrySettings
     system_prompt: str
 
 
