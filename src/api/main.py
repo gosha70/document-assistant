@@ -29,8 +29,23 @@ def _create_backend(settings):
             embedding=embedding,
             persist_directory=settings.vectorstore.persist_directory,
         )
+    elif backend_type == "qdrant":
+        from src.rag.qdrant_backend import QdrantBackend
+        from src.rag.embeddings import InstructorEmbeddingAdapter
+
+        embedding = InstructorEmbeddingAdapter(
+            model_name=settings.embedding.model_name,
+            device=settings.embedding.device,
+            normalize_embeddings=settings.embedding.normalize_embeddings,
+        )
+        return QdrantBackend(
+            embedding=embedding,
+            url=settings.vectorstore.qdrant_url,
+            api_key=settings.vectorstore.qdrant_api_key,
+            prefer_grpc=settings.vectorstore.qdrant_prefer_grpc,
+        )
     else:
-        raise ValueError(f"Unknown vectorstore backend: '{backend_type}'. Supported: chroma")
+        raise ValueError(f"Unknown vectorstore backend: '{backend_type}'. Supported: chroma, qdrant")
 
 
 def _create_llm(settings):

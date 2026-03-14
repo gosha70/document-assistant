@@ -55,6 +55,9 @@ class VectorStoreSettings(BaseModel):
     collection_name: str
     persist_directory: Optional[str]
     chroma_anonymized_telemetry: bool
+    qdrant_url: str
+    qdrant_api_key: Optional[str]
+    qdrant_prefer_grpc: bool
 
 
 class UploadSettings(BaseModel):

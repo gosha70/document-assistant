@@ -30,6 +30,9 @@ vectorstore:
   collection_name: "EGOGE_DOCUMENTS_DB"
   persist_directory: null
   chroma_anonymized_telemetry: false
+  qdrant_url: "http://localhost:6333"
+  qdrant_api_key: null
+  qdrant_prefer_grpc: false
 
 upload:
   max_file_size_mb: 50

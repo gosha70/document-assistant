@@ -39,6 +39,7 @@ sentence-transformers = "*"
 InstructorEmbedding = "*"
 pypdf = "*"
 psutil = "^5.9"
+qdrant-client = "^1.12"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
