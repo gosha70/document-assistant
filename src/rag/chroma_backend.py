@@ -230,6 +230,59 @@ class ChromaBackend(VectorStoreBackend):
         results = collection.get(where={"source": source_name}, include=[])
         return results.get("ids", [])
 
+    def sample_chunks(self, collection_name: str, limit: int = 10, offset: int = 0) -> dict:
+        """Return a sample of chunks with text truncated to 500 characters."""
+        try:
+            collection = self._client.get_collection(collection_name)
+        except Exception:
+            raise ValueError(f"Collection '{collection_name}' not found")
+
+        total_count = collection.count()
+        results = collection.get(
+            limit=limit,
+            offset=offset,
+            include=["documents", "metadatas"],
+        )
+
+        chunks = []
+        ids = results.get("ids") or []
+        documents = results.get("documents") or []
+        metadatas = results.get("metadatas") or []
+        for chunk_id, text, metadata in zip(ids, documents, metadatas):
+            chunks.append(
+                {
+                    "id": chunk_id,
+                    "text": (text or "")[:500],
+                    "metadata": metadata or {},
+                }
+            )
+
+        return {"total_count": total_count, "chunks": chunks}
+
+    def list_sources(self, collection_name: str) -> dict:
+        """Return unique source filenames and chunk counts. Scans at most 10k chunks."""
+        try:
+            collection = self._client.get_collection(collection_name)
+        except Exception:
+            raise ValueError(f"Collection '{collection_name}' not found")
+
+        total = collection.count()
+        scan_limit = 10000
+        results = collection.get(limit=scan_limit, include=["metadatas"])
+        metadatas = results.get("metadatas") or []
+        scanned = len(metadatas)
+
+        source_counts: dict[str, int] = {}
+        for metadata in metadatas:
+            source = (metadata or {}).get("source", "unknown")
+            source_counts[source] = source_counts.get(source, 0) + 1
+
+        return {
+            "sources": [{"filename": source, "chunk_count": count} for source, count in sorted(source_counts.items())],
+            "scanned_chunks": scanned,
+            "truncated": total > scan_limit,
+        }
+
     def as_retriever(self, collection_name: str, **kwargs):
         """Return a LangChain retriever for backward compatibility."""
         db = self._get_or_create(collection_name)

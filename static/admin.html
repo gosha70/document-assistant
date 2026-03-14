@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>D.O.T. Admin Console</title>
+  <style>
+    /* ---- Reset / Base ---- */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-base:      #121212;
+      --bg-card:      #1F1F1F;
+      --bg-input:     #2D2D2D;
+      --border:       #3F3F46;
+      --text-primary: #E4E4E7;
+      --text-muted:   #999;
+      --accent:       #6366F1;
+      --danger:       #EF4444;
+      --success-bg:   #064e3b;
+      --success-text: #6ee7b7;
+      --warning:      #ca8a04;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ---- Top accent line ---- */
+    .top-hr {
+      height: 3px;
+      background-color: var(--accent);
+      border: none;
+    }
+
+    /* ---- Header ---- */
+    .header {
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: var(--bg-base);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .header-left img {
+      height: 48px;
+      width: 48px;
+    }
+
+    .header-logo-text {
+      font-size: 1.8em;
+      color: var(--text-primary);
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .header-subtitle {
+      font-size: 0.85em;
+      color: var(--text-muted);
+      font-style: italic;
+      margin-top: 3px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .header-link {
+      font-size: 0.82em;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .header-link:hover { color: var(--text-primary); border-color: var(--accent); }
+
+    .settings-btn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 1.4em;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: color 0.2s;
+    }
+    .settings-btn:hover { color: var(--text-primary); }
+
+    /* ---- Tab bar ---- */
+    .tab-bar {
+      display: flex;
+      background-color: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 3px solid transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.9em;
+      font-weight: 500;
+      padding: 12px 18px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .tab-btn:hover { color: var(--text-primary); }
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* ---- Content area ---- */
+    .content {
+      flex: 1;
+      padding: 24px 20px;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ---- Settings modal ---- */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      width: 420px;
+      max-width: 95vw;
+    }
+
+    .modal h3 {
+      margin-bottom: 14px;
+      font-size: 1.1em;
+      color: var(--text-primary);
+    }
+
+    .modal label {
+      display: block;
+      font-size: 0.85em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .modal input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      padding: 8px 10px;
+      font-size: 0.9em;
+      margin-bottom: 16px;
+    }
+    .modal input:focus { outline: none; border-color: var(--accent); }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    /* ---- Buttons ---- */
+    .btn {
+      padding: 7px 16px;
+      border-radius: 7px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.85em;
+      font-family: inherit;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary   { background: var(--accent); color: #fff; }
+    .btn-secondary { background: var(--border); color: var(--text-primary); }
+    .btn-danger    { background: var(--danger); color: #fff; }
+    .btn-sm        { padding: 4px 10px; font-size: 0.78em; }
+
+    /* ---- Cards ---- */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 1em;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ---- Section toolbar ---- */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-title {
+      font-size: 1.1em;
+      font-weight: 600;
+      flex: 1;
+    }
+
+    /* ---- Tables ---- */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85em;
+    }
+
+    .data-table th {
+      text-align: left;
+      color: var(--text-muted);
+      font-weight: 600;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .data-table td {
+      padding: 9px 10px;
+      border-bottom: 1px solid rgba(63,63,70,0.4);
+      vertical-align: top;
+    }
+
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: rgba(99,102,241,0.04); }
+
+    /* ---- Badges ---- */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.75em;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-active  { background: var(--accent); color: #fff; }
+    .badge-success { background: var(--success-bg); color: var(--success-text); }
+    .badge-warning { background: #3b2800; color: #fbbf24; }
+    .badge-danger  { background: #3b0a0a; color: #fca5a5; }
+    .badge-muted   { background: #2a2a2e; color: var(--text-muted); }
+    .badge-running {
+      background: #3b2800;
+      color: #fbbf24;
+      animation: pulse-badge 1.2s ease-in-out infinite alternate;
+    }
+    @keyframes pulse-badge {
+      0%   { opacity: 1; }
+      100% { opacity: 0.55; }
+    }
+
+    /* ---- Status text ---- */
+    .text-muted   { color: var(--text-muted); }
+    .text-danger  { color: var(--danger); }
+    .text-success { color: var(--success-text); }
+    .text-accent  { color: var(--accent); }
+
+    /* ---- Expandable row panel ---- */
+    .expand-panel {
+      display: none;
+      background: var(--bg-base);
+      border-top: 1px solid var(--border);
+    }
+    .expand-panel.open { display: block; }
+    .expand-panel-inner {
+      padding: 14px 16px;
+    }
+
+    .sub-section {
+      margin-bottom: 14px;
+    }
+    .sub-section-title {
+      font-size: 0.82em;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+    }
+
+    /* detail kv grid */
+    .kv-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 20px;
+      font-size: 0.83em;
+    }
+    .kv-item { display: flex; flex-direction: column; gap: 2px; }
+    .kv-label { color: var(--text-muted); font-size: 0.85em; }
+    .kv-value { color: var(--text-primary); word-break: break-all; }
+
+    /* ---- Metrics grid ---- */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 640px) {
+      .metrics-grid { grid-template-columns: 1fr; }
+    }
+
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(63,63,70,0.35);
+      font-size: 0.85em;
+    }
+    .metric-row:last-child { border-bottom: none; }
+    .metric-label { color: var(--text-muted); }
+    .metric-value { color: var(--text-primary); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+    /* ---- Loading / error states ---- */
+    .state-msg {
+      text-align: center;
+      padding: 32px 16px;
+      color: var(--text-muted);
+      font-size: 0.9em;
+    }
+    .state-msg.error { color: var(--danger); }
+
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---- Chunk preview ---- */
+    .chunk-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .chunk-item {
+      background: var(--bg-input);
+      border-radius: 7px;
+      padding: 10px 12px;
+      font-size: 0.8em;
+    }
+    .chunk-text {
+      color: var(--text-primary);
+      line-height: 1.5;
+      margin-bottom: 5px;
+      word-break: break-word;
+    }
+    .chunk-meta {
+      color: var(--text-muted);
+      font-size: 0.85em;
+    }
+
+    /* ---- Scrollbars ---- */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ---- Footer ---- */
+    .bottom-hr {
+      height: 2px;
+      background-color: var(--danger);
+      border: none;
+    }
+
+    footer {
+      text-align: left;
+      padding: 8px 20px;
+      font-size: 0.78em;
+      color: #444;
+    }
+
+    /* ---- Auto-refresh toggle ---- */
+    .toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.83em;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+    }
+    .toggle-label input[type="checkbox"] {
+      accent-color: var(--accent);
+    }
+
+    /* ---- Confirmation row (inline) ---- */
+    .confirm-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .confirm-text {
+      font-size: 0.82em;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+<!-- Top accent line -->
+<hr class="top-hr" />
+
+<!-- Header -->
+<header class="header">
+  <div class="header-left">
+    <img src="/assets/chat_logo_small.png" alt="D.O.T. logo" onerror="this.style.display='none'" />
+    <div>
+      <div class="header-logo-text">D.O.T. Admin</div>
+      <div class="header-subtitle">Document of Things — Operations Console</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <a class="header-link" href="/static/index.html">&larr; Back to Chat</a>
+    <button class="settings-btn" id="settings-open-btn" title="Settings" aria-label="Open settings">&#9881;</button>
+  </div>
+</header>
+
+<!-- Tab bar -->
+<nav class="tab-bar" role="tablist" aria-label="Admin sections">
+  <button class="tab-btn active" role="tab" aria-selected="true"  aria-controls="tab-collections" data-tab="collections">Collections</button>
+  <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-jobs"        data-tab="jobs">Jobs</button>
+  <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-metrics"     data-tab="metrics">Metrics</button>
+  <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-reports"     data-tab="reports">Reports</button>
+</nav>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+  <div class="modal">
+    <h3 id="settings-title">Admin Settings</h3>
+    <label for="admin-token-input">Admin Bearer Token (stored in localStorage)</label>
+    <input type="password" id="admin-token-input" placeholder="Paste your admin token here&hellip;" autocomplete="off" />
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="settings-cancel-btn">Cancel</button>
+      <button class="btn btn-primary" id="settings-save-btn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main content -->
+<main>
+  <div class="content">
+
+    <!-- ============================================================
+         TAB 1: COLLECTIONS
+         ============================================================ -->
+    <div class="tab-panel active" id="tab-collections" role="tabpanel" aria-labelledby="">
+
+      <div class="toolbar">
+        <span class="toolbar-title">Collections</span>
+        <button class="btn btn-secondary" id="collections-refresh-btn">&#8635; Refresh</button>
+      </div>
+
+      <div id="collections-state" class="state-msg">
+        <span class="spinner"></span> Loading collections&hellip;
+      </div>
+
+      <div id="collections-list" style="display:none;"></div>
+
+    </div>
+
+    <!-- ============================================================
+         TAB 2: JOBS
+         ============================================================ -->
+    <div class="tab-panel" id="tab-jobs" role="tabpanel">
+
+      <div class="toolbar">
+        <span class="toolbar-title">Background Jobs</span>
+        <label class="toggle-label" title="Auto-refresh every 5 seconds while active jobs exist">
+          <input type="checkbox" id="jobs-auto-refresh-chk" /> Auto-refresh (5s)
+        </label>
+        <button class="btn btn-secondary" id="jobs-refresh-btn">&#8635; Refresh</button>
+      </div>
+
+      <div id="jobs-state" class="state-msg">
+        <span class="spinner"></span> Loading jobs&hellip;
+      </div>
+
+      <div id="jobs-table-wrap" style="display:none;">
+        <div class="card" style="padding:0; overflow:hidden;">
+          <table class="data-table" id="jobs-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Type</th>
+                <th>Collection</th>
+                <th>Status</th>
+                <th>Progress</th>
+                <th>Error</th>
+                <th>Created</th>
+                <th>Updated</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="jobs-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ============================================================
+         TAB 3: METRICS
+         ============================================================ -->
+    <div class="tab-panel" id="tab-metrics" role="tabpanel">
+
+      <div class="toolbar">
+        <span class="toolbar-title">Runtime Metrics</span>
+        <label class="toggle-label">
+          <input type="checkbox" id="metrics-auto-refresh-chk" /> Auto-refresh (10s)
+        </label>
+        <button class="btn btn-secondary" id="metrics-refresh-btn">&#8635; Refresh</button>
+      </div>
+
+      <div id="metrics-state" class="state-msg">
+        <span class="spinner"></span> Loading metrics&hellip;
+      </div>
+
+      <div id="metrics-content" style="display:none;">
+        <div class="metrics-grid">
+          <div class="card" id="app-metrics-card">
+            <div class="card-title">Application Metrics</div>
+            <div id="app-metrics-body"></div>
+          </div>
+          <div class="card" id="proc-metrics-card">
+            <div class="card-title">Process Metrics</div>
+            <div id="proc-metrics-body"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ============================================================
+         TAB 4: REPORTS
+         ============================================================ -->
+    <div class="tab-panel" id="tab-reports" role="tabpanel">
+
+      <div class="toolbar">
+        <span class="toolbar-title">Summary Report</span>
+        <button class="btn btn-secondary" id="reports-refresh-btn">&#8635; Refresh</button>
+      </div>
+
+      <div id="reports-state" class="state-msg">
+        <span class="spinner"></span> Loading report&hellip;
+      </div>
+
+      <div id="reports-content" style="display:none;"></div>
+
+    </div>
+
+  </div><!-- /.content -->
+</main>
+
+<!-- Bottom accent line -->
+<hr class="bottom-hr" />
+
+<!-- Footer -->
+<footer>&copy; 2023 EGOGE &mdash; All Rights Reserved &nbsp;|&nbsp; <a href="/static/index.html" style="color:#555;text-decoration:none;">D.O.T. Chat UI</a></footer>
+
+
+<script>
+(function () {
+  'use strict';
+
+  /* ================================================================
+     UTILITIES
+     ================================================================ */
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function getToken() {
+    return localStorage.getItem('dot_admin_token') || '';
+  }
+
+  function authHeaders() {
+    var t = getToken();
+    return t ? { 'Authorization': 'Bearer ' + t } : {};
+  }
+
+  function apiFetch(url, options) {
+    options = options || {};
+    var headers = Object.assign({}, authHeaders(), options.headers || {});
+    return fetch(url, Object.assign({}, options, { headers: headers }));
+  }
+
+  function formatUptime(seconds) {
+    if (seconds == null) return 'N/A';
+    var s = Math.floor(seconds);
+    var h = Math.floor(s / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    var sec = s % 60;
+    return h + 'h ' + m + 'm ' + sec + 's';
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '';
+    try {
+      return new Date(iso).toLocaleString();
+    } catch (_) {
+      return iso;
+    }
+  }
+
+  function truncate(str, max) {
+    if (!str) return '';
+    str = String(str);
+    if (str.length <= max) return str;
+    return str.slice(0, max) + '\u2026';
+  }
+
+  function showStateMsg(el, msg, isError) {
+    el.innerHTML = isError
+      ? '<span class="text-danger">' + escapeHtml(msg) + '</span>'
+      : '<span class="spinner"></span> ' + escapeHtml(msg);
+    el.style.display = '';
+    el.className = 'state-msg' + (isError ? ' error' : '');
+  }
+
+  function handle403(container) {
+    showStateMsg(container,
+      '403 Forbidden \u2014 set your admin token in Settings (gear icon).',
+      true);
+  }
+
+  /* ================================================================
+     SETTINGS MODAL
+     ================================================================ */
+
+  var settingsModal     = document.getElementById('settings-modal');
+  var settingsOpenBtn   = document.getElementById('settings-open-btn');
+  var settingsCancelBtn = document.getElementById('settings-cancel-btn');
+  var settingsSaveBtn   = document.getElementById('settings-save-btn');
+  var adminTokenInput   = document.getElementById('admin-token-input');
+
+  settingsOpenBtn.addEventListener('click', function () {
+    adminTokenInput.value = getToken();
+    settingsModal.classList.add('open');
+    adminTokenInput.focus();
+  });
+
+  settingsCancelBtn.addEventListener('click', function () {
+    settingsModal.classList.remove('open');
+  });
+
+  settingsSaveBtn.addEventListener('click', function () {
+    var val = adminTokenInput.value.trim();
+    if (val) {
+      localStorage.setItem('dot_admin_token', val);
+    } else {
+      localStorage.removeItem('dot_admin_token');
+    }
+    settingsModal.classList.remove('open');
+  });
+
+  settingsModal.addEventListener('click', function (e) {
+    if (e.target === settingsModal) settingsModal.classList.remove('open');
+  });
+
+  /* ================================================================
+     TAB NAVIGATION
+     ================================================================ */
+
+  var tabBtns   = document.querySelectorAll('.tab-btn');
+  var tabPanels = document.querySelectorAll('.tab-panel');
+  var activeTab = 'collections';
+  var jobsAutoRefreshTimer = null;
+  var metricsAutoRefreshTimer = null;
+
+  function switchTab(name) {
+    activeTab = name;
+    tabBtns.forEach(function (btn) {
+      var isActive = btn.dataset.tab === name;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-selected', String(isActive));
+    });
+    tabPanels.forEach(function (panel) {
+      panel.classList.toggle('active', panel.id === 'tab-' + name);
+    });
+    // Load data for the activated tab
+    if (name === 'collections') loadCollections();
+    if (name === 'jobs')        loadJobs();
+    if (name === 'metrics')     loadMetrics();
+    if (name === 'reports')     loadReports();
+  }
+
+  tabBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      switchTab(btn.dataset.tab);
+    });
+  });
+
+  /* ================================================================
+     TAB 1 — COLLECTIONS
+     ================================================================ */
+
+  var collectionsState   = document.getElementById('collections-state');
+  var collectionsList    = document.getElementById('collections-list');
+  var collectionsRefresh = document.getElementById('collections-refresh-btn');
+
+  collectionsRefresh.addEventListener('click', loadCollections);
+
+  function loadCollections() {
+    showStateMsg(collectionsState, 'Loading collections\u2026', false);
+    collectionsList.style.display = 'none';
+    collectionsList.innerHTML = '';
+
+    var activeCollectionName = null;
+
+    // Fetch status (for active collection badge) and collections in parallel
+    Promise.all([
+      apiFetch('/status').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+      apiFetch('/admin/collections')
+    ]).then(function (results) {
+      var statusData = results[0];
+      var collectionsResp = results[1];
+
+      if (statusData && statusData.collection_name) {
+        activeCollectionName = statusData.collection_name;
+      }
+
+      if (collectionsResp.status === 403) {
+        handle403(collectionsState);
+        return;
+      }
+      if (!collectionsResp.ok) {
+        showStateMsg(collectionsState, 'Error ' + collectionsResp.status + ': ' + collectionsResp.statusText, true);
+        return;
+      }
+      return collectionsResp.json().then(function (data) {
+        renderCollections(data, activeCollectionName);
+      });
+    }).catch(function (err) {
+      showStateMsg(collectionsState, 'Network error: ' + err.message, true);
+    });
+  }
+
+  function renderCollections(data, activeCollectionName) {
+    // data may be an array or an object with a collections key
+    var collections = Array.isArray(data) ? data : (data.collections || []);
+
+    if (collections.length === 0) {
+      showStateMsg(collectionsState, 'No collections found.', false);
+      return;
+    }
+
+    collectionsState.style.display = 'none';
+    collectionsList.style.display = '';
+    collectionsList.innerHTML = '';
+
+    collections.forEach(function (col) {
+      var isActive = col.name === activeCollectionName;
+      var card = document.createElement('div');
+      card.className = 'card';
+      card.style.marginBottom = '12px';
+      card.style.padding = '0';
+      card.style.overflow = 'hidden';
+
+      /* --- Collection header row --- */
+      var headerRow = document.createElement('div');
+      headerRow.style.cssText = 'display:flex;align-items:center;gap:10px;padding:14px 16px;flex-wrap:wrap;';
+
+      var nameSpan = document.createElement('span');
+      nameSpan.style.cssText = 'font-weight:600;font-size:1em;flex:1;';
+      nameSpan.textContent = col.name;
+      headerRow.appendChild(nameSpan);
+
+      if (isActive) {
+        var activeBadge = document.createElement('span');
+        activeBadge.className = 'badge badge-active';
+        activeBadge.textContent = 'ACTIVE';
+        headerRow.appendChild(activeBadge);
+      }
+
+      var backendSpan = document.createElement('span');
+      backendSpan.className = 'text-muted';
+      backendSpan.style.fontSize = '0.83em';
+      backendSpan.textContent = escapeHtml(col.backend || '');
+      headerRow.appendChild(backendSpan);
+
+      var docCount = document.createElement('span');
+      docCount.style.cssText = 'font-size:0.83em;color:var(--text-muted);';
+      docCount.textContent = (col.document_count != null ? col.document_count : '?') + ' docs';
+      headerRow.appendChild(docCount);
+
+      var modelSpan = document.createElement('span');
+      modelSpan.style.cssText = 'font-size:0.78em;color:var(--text-muted);font-style:italic;';
+      modelSpan.textContent = escapeHtml(col.embedding_model || '');
+      headerRow.appendChild(modelSpan);
+
+      /* action buttons */
+      var actionsDiv = document.createElement('div');
+      actionsDiv.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;align-items:center;';
+
+      var detailsBtn = makeBtn('Details', 'btn btn-secondary btn-sm', function () {
+        toggleCollectionDetails(col.name, detailsPanel);
+      });
+
+      var chunksBtn = makeBtn('Sample Chunks', 'btn btn-secondary btn-sm', function () {
+        loadChunks(col.name, chunksContainer);
+      });
+
+      var sourcesBtn = makeBtn('Source Files', 'btn btn-secondary btn-sm', function () {
+        loadSources(col.name, sourcesContainer);
+      });
+
+      var reindexBtn = makeBtn('Reindex', 'btn btn-primary btn-sm', function () {
+        confirmAndPost(col.name, '/admin/collections/' + encodeURIComponent(col.name) + '/reindex',
+          'Reindex collection "' + col.name + '"?', reindexBtn, reindexMsg);
+      });
+      var reindexMsg = document.createElement('span');
+      reindexMsg.style.cssText = 'font-size:0.78em;';
+
+      var exportBtn = makeBtn('Export', 'btn btn-secondary btn-sm', function () {
+        confirmAndPost(col.name, '/admin/collections/' + encodeURIComponent(col.name) + '/export',
+          'Export collection "' + col.name + '"?', exportBtn, exportMsg);
+      });
+      var exportMsg = document.createElement('span');
+      exportMsg.style.cssText = 'font-size:0.78em;';
+
+      actionsDiv.appendChild(detailsBtn);
+      actionsDiv.appendChild(chunksBtn);
+      actionsDiv.appendChild(sourcesBtn);
+      actionsDiv.appendChild(reindexBtn);
+      actionsDiv.appendChild(reindexMsg);
+      actionsDiv.appendChild(exportBtn);
+      actionsDiv.appendChild(exportMsg);
+
+      headerRow.appendChild(actionsDiv);
+      card.appendChild(headerRow);
+
+      /* --- Expandable detail panel --- */
+      var detailsPanel = document.createElement('div');
+      detailsPanel.className = 'expand-panel';
+
+      var detailsInner = document.createElement('div');
+      detailsInner.className = 'expand-panel-inner';
+
+      /* detail kv */
+      var detailSection = document.createElement('div');
+      detailSection.className = 'sub-section';
+      var detailTitle = document.createElement('div');
+      detailTitle.className = 'sub-section-title';
+      detailTitle.textContent = 'Collection Details';
+      detailSection.appendChild(detailTitle);
+      var detailBody = document.createElement('div');
+      detailBody.id = 'col-detail-' + escapeHtml(col.name);
+      detailSection.appendChild(detailBody);
+      detailsInner.appendChild(detailSection);
+
+      /* chunks sub-panel */
+      var chunksSection = document.createElement('div');
+      chunksSection.className = 'sub-section';
+      chunksSection.style.marginTop = '12px';
+      var chunksTitle = document.createElement('div');
+      chunksTitle.className = 'sub-section-title';
+      chunksTitle.textContent = 'Sample Chunks';
+      chunksSection.appendChild(chunksTitle);
+      var chunksContainer = document.createElement('div');
+      chunksContainer.textContent = 'Click "Sample Chunks" to load.';
+      chunksContainer.style.cssText = 'font-size:0.82em;color:var(--text-muted);';
+      chunksSection.appendChild(chunksContainer);
+      detailsInner.appendChild(chunksSection);
+
+      /* sources sub-panel */
+      var sourcesSection = document.createElement('div');
+      sourcesSection.className = 'sub-section';
+      sourcesSection.style.marginTop = '12px';
+      var sourcesTitle = document.createElement('div');
+      sourcesTitle.className = 'sub-section-title';
+      sourcesTitle.textContent = 'Source Files';
+      sourcesSection.appendChild(sourcesTitle);
+      var sourcesContainer = document.createElement('div');
+      sourcesContainer.textContent = 'Click "Source Files" to load.';
+      sourcesContainer.style.cssText = 'font-size:0.82em;color:var(--text-muted);';
+      sourcesSection.appendChild(sourcesContainer);
+      detailsInner.appendChild(sourcesSection);
+
+      detailsPanel.appendChild(detailsInner);
+      card.appendChild(detailsPanel);
+
+      collectionsList.appendChild(card);
+    });
+  }
+
+  function toggleCollectionDetails(name, panel) {
+    var isOpen = panel.classList.toggle('open');
+    if (!isOpen) return;
+    var detailBody = document.getElementById('col-detail-' + escapeHtml(name));
+    if (detailBody && detailBody.dataset.loaded) return; // already fetched
+
+    detailBody.innerHTML = '<span class="spinner"></span> Loading\u2026';
+    apiFetch('/admin/collections/' + encodeURIComponent(name)).then(function (r) {
+      if (r.status === 403) { detailBody.innerHTML = '<span class="text-danger">403 \u2014 set admin token in Settings.</span>'; return; }
+      if (r.status === 404) { detailBody.innerHTML = '<span class="text-muted">Collection not found.</span>'; return; }
+      if (!r.ok) { detailBody.innerHTML = '<span class="text-danger">Error ' + r.status + '</span>'; return; }
+      return r.json().then(function (col) {
+        detailBody.dataset.loaded = '1';
+        var fields = [
+          ['Name', col.name],
+          ['Backend', col.backend],
+          ['Document Count', col.document_count],
+          ['Embedding Model', col.embedding_model],
+          ['Persist Directory', col.persist_directory],
+        ];
+        var grid = document.createElement('div');
+        grid.className = 'kv-grid';
+        fields.forEach(function (pair) {
+          if (pair[1] == null) return;
+          var item = document.createElement('div');
+          item.className = 'kv-item';
+          item.innerHTML = '<span class="kv-label">' + escapeHtml(pair[0]) + '</span>' +
+                           '<span class="kv-value">' + escapeHtml(String(pair[1])) + '</span>';
+          grid.appendChild(item);
+        });
+        detailBody.innerHTML = '';
+        detailBody.appendChild(grid);
+      });
+    }).catch(function (err) {
+      detailBody.innerHTML = '<span class="text-danger">Network error: ' + escapeHtml(err.message) + '</span>';
+    });
+  }
+
+  function loadChunks(name, container) {
+    container.innerHTML = '<span class="spinner"></span> Loading chunks\u2026';
+    apiFetch('/admin/collections/' + encodeURIComponent(name) + '/chunks?limit=10').then(function (r) {
+      if (r.status === 403) { container.innerHTML = '<span class="text-danger">403 \u2014 set admin token.</span>'; return; }
+      if (r.status === 404) { container.innerHTML = '<span class="text-muted">Collection not found.</span>'; return; }
+      if (!r.ok) { container.innerHTML = '<span class="text-danger">Error ' + r.status + '</span>'; return; }
+      return r.json().then(function (data) {
+        var chunks = data.chunks || [];
+        if (chunks.length === 0) {
+          container.innerHTML = '<span class="text-muted">No chunks found.</span>';
+          return;
+        }
+        var ul = document.createElement('ul');
+        ul.className = 'chunk-list';
+        chunks.forEach(function (c) {
+          var li = document.createElement('li');
+          li.className = 'chunk-item';
+          var meta = c.metadata || {};
+          var metaParts = [];
+          if (meta.source) metaParts.push(escapeHtml(meta.source));
+          if (meta.page != null) metaParts.push('p.' + escapeHtml(String(meta.page)));
+          li.innerHTML = '<div class="chunk-text">' + escapeHtml(truncate(c.text, 200)) + '</div>' +
+                         (metaParts.length ? '<div class="chunk-meta">' + metaParts.join(' &middot; ') + '</div>' : '');
+          ul.appendChild(li);
+        });
+        container.innerHTML = '';
+        var total = document.createElement('div');
+        total.style.cssText = 'font-size:0.78em;color:var(--text-muted);margin-bottom:8px;';
+        total.textContent = 'Showing ' + chunks.length + ' of ' + (data.total_count || '?') + ' total chunks';
+        container.appendChild(total);
+        container.appendChild(ul);
+      });
+    }).catch(function (err) {
+      container.innerHTML = '<span class="text-danger">Network error: ' + escapeHtml(err.message) + '</span>';
+    });
+  }
+
+  function loadSources(name, container) {
+    container.innerHTML = '<span class="spinner"></span> Loading sources\u2026';
+    apiFetch('/admin/collections/' + encodeURIComponent(name) + '/sources').then(function (r) {
+      if (r.status === 403) { container.innerHTML = '<span class="text-danger">403 \u2014 set admin token.</span>'; return; }
+      if (r.status === 404) { container.innerHTML = '<span class="text-muted">Collection not found.</span>'; return; }
+      if (!r.ok) { container.innerHTML = '<span class="text-danger">Error ' + r.status + '</span>'; return; }
+      return r.json().then(function (data) {
+        var sources = data.sources || [];
+        if (sources.length === 0) {
+          container.innerHTML = '<span class="text-muted">No source files found.</span>';
+          return;
+        }
+        var table = document.createElement('table');
+        table.className = 'data-table';
+        table.innerHTML = '<thead><tr><th>Filename</th><th>Chunk Count</th></tr></thead>';
+        var tbody = document.createElement('tbody');
+        sources.forEach(function (s) {
+          var tr = document.createElement('tr');
+          tr.innerHTML = '<td>' + escapeHtml(s.filename || '') + '</td>' +
+                         '<td>' + escapeHtml(String(s.chunk_count != null ? s.chunk_count : '?')) + '</td>';
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        container.innerHTML = '';
+        container.appendChild(table);
+        if (data.truncated) {
+          var note = document.createElement('div');
+          note.className = 'text-muted';
+          note.style.fontSize = '0.8em';
+          note.style.marginTop = '6px';
+          note.textContent = 'Results may be incomplete \u2014 only ' + (data.scanned_chunks || 0).toLocaleString() + ' of the collection\u2019s chunks were scanned.';
+          container.appendChild(note);
+        }
+      });
+    }).catch(function (err) {
+      container.innerHTML = '<span class="text-danger">Network error: ' + escapeHtml(err.message) + '</span>';
+    });
+  }
+
+  function confirmAndPost(colName, url, promptText, btn, msgEl) {
+    // Inline confirm pattern
+    msgEl.innerHTML = '';
+    var row = document.createElement('span');
+    row.innerHTML = '<span class="confirm-text">' + escapeHtml(promptText) + ' </span>' +
+                    '<button class="btn btn-primary btn-sm">Confirm</button>' +
+                    ' <button class="btn btn-secondary btn-sm">Cancel</button>';
+    var confirmBtn = row.querySelectorAll('button')[0];
+    var cancelBtn  = row.querySelectorAll('button')[1];
+
+    cancelBtn.addEventListener('click', function () { msgEl.innerHTML = ''; });
+    confirmBtn.addEventListener('click', function () {
+      msgEl.innerHTML = '<span class="spinner"></span>';
+      btn.disabled = true;
+      apiFetch(url, { method: 'POST' }).then(function (r) {
+        btn.disabled = false;
+        if (r.status === 403) { msgEl.innerHTML = '<span class="text-danger">403 \u2014 set admin token.</span>'; return r; }
+        if (!r.ok) { return r.json().catch(function () { return { detail: r.statusText }; }).then(function (e) { msgEl.innerHTML = '<span class="text-danger">Error: ' + escapeHtml(e.detail || r.statusText) + '</span>'; }); }
+        return r.json().then(function (data) {
+          var msg = data.message || data.job_id ? ('Job queued: ' + (data.job_id || 'OK')) : 'Done.';
+          msgEl.innerHTML = '<span class="text-success">' + escapeHtml(msg) + '</span>';
+        });
+      }).catch(function (err) {
+        btn.disabled = false;
+        msgEl.innerHTML = '<span class="text-danger">Network error: ' + escapeHtml(err.message) + '</span>';
+      });
+    });
+
+    msgEl.appendChild(row);
+  }
+
+  function makeBtn(label, className, handler) {
+    var btn = document.createElement('button');
+    btn.className = className;
+    btn.textContent = label;
+    btn.addEventListener('click', handler);
+    return btn;
+  }
+
+  /* ================================================================
+     TAB 2 — JOBS
+     ================================================================ */
+
+  var jobsState         = document.getElementById('jobs-state');
+  var jobsTableWrap     = document.getElementById('jobs-table-wrap');
+  var jobsTbody         = document.getElementById('jobs-tbody');
+  var jobsRefreshBtn    = document.getElementById('jobs-refresh-btn');
+  var jobsAutoRefreshChk = document.getElementById('jobs-auto-refresh-chk');
+
+  jobsRefreshBtn.addEventListener('click', loadJobs);
+
+  jobsAutoRefreshChk.addEventListener('change', function () {
+    if (jobsAutoRefreshChk.checked) {
+      scheduleJobsAutoRefresh();
+    } else {
+      clearJobsAutoRefresh();
+    }
+  });
+
+  function scheduleJobsAutoRefresh() {
+    clearJobsAutoRefresh();
+    jobsAutoRefreshTimer = setTimeout(function () {
+      if (activeTab === 'jobs') {
+        loadJobs();
+      }
+    }, 5000);
+  }
+
+  function clearJobsAutoRefresh() {
+    if (jobsAutoRefreshTimer) {
+      clearTimeout(jobsAutoRefreshTimer);
+      jobsAutoRefreshTimer = null;
+    }
+  }
+
+  function loadJobs() {
+    showStateMsg(jobsState, 'Loading jobs\u2026', false);
+    jobsTableWrap.style.display = 'none';
+
+    apiFetch('/admin/jobs').then(function (r) {
+      if (r.status === 403) { handle403(jobsState); return; }
+      if (!r.ok) { showStateMsg(jobsState, 'Error ' + r.status + ': ' + r.statusText, true); return; }
+      return r.json().then(function (data) {
+        var jobs = Array.isArray(data) ? data : (data.jobs || []);
+        renderJobs(jobs);
+      });
+    }).catch(function (err) {
+      showStateMsg(jobsState, 'Network error: ' + err.message, true);
+    });
+  }
+
+  function renderJobs(jobs) {
+    if (jobs.length === 0) {
+      showStateMsg(jobsState, 'No jobs found.', false);
+      jobsTableWrap.style.display = 'none';
+      return;
+    }
+
+    jobsState.style.display = 'none';
+    jobsTableWrap.style.display = '';
+    jobsTbody.innerHTML = '';
+
+    var hasActive = false;
+
+    jobs.forEach(function (job) {
+      var status = job.status || '';
+      if (status === 'queued' || status === 'running') hasActive = true;
+
+      var tr = document.createElement('tr');
+
+      var badgeClass = {
+        queued:    'badge-muted',
+        running:   'badge-running',
+        completed: 'badge-success',
+        failed:    'badge-danger',
+        cancelled: 'badge-muted',
+      }[status] || 'badge-muted';
+
+      var idShort = escapeHtml((job.id || '').slice(0, 8));
+      var errorText = job.error ? escapeHtml(truncate(job.error, 60)) : '<span class="text-muted">&mdash;</span>';
+
+      var statusHtml = '<span class="badge ' + badgeClass + '"' +
+        (status === 'cancelled' ? ' style="font-style:italic;"' : '') + '>' +
+        escapeHtml(status) + '</span>';
+
+      var progressHtml = job.progress != null
+        ? escapeHtml(String(Math.round(job.progress * 100))) + '%'
+        : '<span class="text-muted">&mdash;</span>';
+
+      tr.innerHTML = '<td><code style="font-size:0.85em;">' + idShort + '</code></td>' +
+        '<td>' + escapeHtml(job.type || '') + '</td>' +
+        '<td>' + escapeHtml(job.collection_name || '') + '</td>' +
+        '<td>' + statusHtml + '</td>' +
+        '<td>' + progressHtml + '</td>' +
+        '<td style="max-width:140px;word-break:break-word;">' + errorText + '</td>' +
+        '<td style="white-space:nowrap;">' + escapeHtml(formatDate(job.created_at)) + '</td>' +
+        '<td style="white-space:nowrap;">' + escapeHtml(formatDate(job.updated_at)) + '</td>' +
+        '<td></td>';
+
+      var actionTd = tr.lastElementChild;
+
+      if (status === 'failed') {
+        var retryBtn = makeBtn('Retry', 'btn btn-primary btn-sm', function () {
+          jobAction('/admin/jobs/' + encodeURIComponent(job.id) + '/retry', 'POST', retryBtn);
+        });
+        actionTd.appendChild(retryBtn);
+      }
+
+      if (status === 'queued' || status === 'running') {
+        var cancelBtn = makeBtn('Cancel', 'btn btn-danger btn-sm', function () {
+          jobAction('/admin/jobs/' + encodeURIComponent(job.id), 'DELETE', cancelBtn);
+        });
+        actionTd.appendChild(cancelBtn);
+      }
+
+      jobsTbody.appendChild(tr);
+    });
+
+    // Auto-refresh if there are active jobs
+    if (hasActive && jobsAutoRefreshChk.checked) {
+      scheduleJobsAutoRefresh();
+    } else if (hasActive) {
+      // Enable auto-refresh automatically while active jobs exist
+      scheduleJobsAutoRefresh();
+    } else {
+      clearJobsAutoRefresh();
+    }
+  }
+
+  function jobAction(url, method, btn) {
+    btn.disabled = true;
+    apiFetch(url, { method: method }).then(function (r) {
+      btn.disabled = false;
+      if (!r.ok) {
+        return r.json().catch(function () { return { detail: r.statusText }; }).then(function (e) {
+          alert('Error: ' + (e.detail || r.statusText));
+        });
+      }
+      loadJobs();
+    }).catch(function (err) {
+      btn.disabled = false;
+      alert('Network error: ' + err.message);
+    });
+  }
+
+  /* ================================================================
+     TAB 3 — METRICS
+     ================================================================ */
+
+  var metricsState          = document.getElementById('metrics-state');
+  var metricsContent        = document.getElementById('metrics-content');
+  var appMetricsBody        = document.getElementById('app-metrics-body');
+  var procMetricsBody       = document.getElementById('proc-metrics-body');
+  var metricsRefreshBtn     = document.getElementById('metrics-refresh-btn');
+  var metricsAutoRefreshChk = document.getElementById('metrics-auto-refresh-chk');
+
+  metricsRefreshBtn.addEventListener('click', loadMetrics);
+
+  metricsAutoRefreshChk.addEventListener('change', function () {
+    if (metricsAutoRefreshChk.checked) {
+      scheduleMetricsAutoRefresh();
+    } else {
+      clearMetricsAutoRefresh();
+    }
+  });
+
+  function scheduleMetricsAutoRefresh() {
+    clearMetricsAutoRefresh();
+    metricsAutoRefreshTimer = setTimeout(function () {
+      if (activeTab === 'metrics') {
+        loadMetrics();
+        if (metricsAutoRefreshChk.checked) scheduleMetricsAutoRefresh();
+      }
+    }, 10000);
+  }
+
+  function clearMetricsAutoRefresh() {
+    if (metricsAutoRefreshTimer) {
+      clearTimeout(metricsAutoRefreshTimer);
+      metricsAutoRefreshTimer = null;
+    }
+  }
+
+  function loadMetrics() {
+    showStateMsg(metricsState, 'Loading metrics\u2026', false);
+    metricsContent.style.display = 'none';
+
+    apiFetch('/admin/metrics/runtime').then(function (r) {
+      if (r.status === 403) { handle403(metricsState); return; }
+      if (!r.ok) { showStateMsg(metricsState, 'Error ' + r.status + ': ' + r.statusText, true); return; }
+      return r.json().then(function (data) {
+        renderMetrics(data);
+      });
+    }).catch(function (err) {
+      showStateMsg(metricsState, 'Network error: ' + err.message, true);
+    });
+  }
+
+  function renderMetrics(data) {
+    // Backend returns {status: "disabled", message: ...} when telemetry is off
+    if (data.status === 'disabled') {
+      showStateMsg(metricsState, data.message || 'Telemetry is disabled in configuration.', false);
+      return;
+    }
+
+    // Backend returns {application: {...}, process: {...}} when enabled
+    var app = data.application || {};
+    var proc = data.process || {};
+
+    metricsState.style.display = 'none';
+    metricsContent.style.display = '';
+
+    var rc = app.request_count || 0;
+    var ec = app.error_count || 0;
+    var errorRate = rc > 0 ? ((ec / rc) * 100).toFixed(1) + '%' : '0%';
+
+    var appRows = [
+      ['Uptime',                  formatUptime(app.uptime_seconds)],
+      ['Total Requests',          app.request_count != null ? app.request_count : 'N/A'],
+      ['Total Errors',            app.error_count != null ? app.error_count : 'N/A'],
+      ['Error Rate',              errorRate],
+      ['LLM Calls',               app.llm_call_count != null ? app.llm_call_count : 'N/A'],
+      ['LLM Avg Latency',         app.llm_avg_latency_seconds != null ? app.llm_avg_latency_seconds.toFixed(3) + 's' : 'N/A'],
+      ['LLM Prompt Chars (total)',app.llm_total_prompt_chars != null ? app.llm_total_prompt_chars.toLocaleString() : 'N/A'],
+      ['LLM Response Chars',      app.llm_total_response_chars != null ? app.llm_total_response_chars.toLocaleString() : 'N/A'],
+      ['Retrieval Count',         app.retrieval_count != null ? app.retrieval_count : 'N/A'],
+      ['Retrieval Avg Latency',   app.retrieval_avg_latency_seconds != null ? app.retrieval_avg_latency_seconds.toFixed(3) + 's' : 'N/A'],
+      ['Documents Ingested',      app.ingest_total_docs != null ? app.ingest_total_docs : 'N/A'],
+    ];
+
+    var procRows = [
+      ['PID',          proc.pid != null ? proc.pid : 'N/A'],
+      ['CPU %',        proc.cpu_percent != null ? proc.cpu_percent.toFixed(1) + '%' : 'N/A'],
+      ['Memory RSS',   proc.memory_rss_mb != null ? proc.memory_rss_mb.toFixed(1) + ' MB' : 'N/A'],
+      ['Memory VMS',   proc.memory_vms_mb != null ? proc.memory_vms_mb.toFixed(1) + ' MB' : 'N/A'],
+      ['Threads',      proc.threads != null ? proc.threads : 'N/A'],
+    ];
+
+    appMetricsBody.innerHTML = buildMetricRows(appRows);
+    procMetricsBody.innerHTML = buildMetricRows(procRows);
+  }
+
+  function buildMetricRows(rows) {
+    return rows.map(function (r) {
+      return '<div class="metric-row">' +
+        '<span class="metric-label">' + escapeHtml(r[0]) + '</span>' +
+        '<span class="metric-value">' + escapeHtml(String(r[1])) + '</span>' +
+        '</div>';
+    }).join('');
+  }
+
+  /* ================================================================
+     TAB 4 — REPORTS
+     ================================================================ */
+
+  var reportsState   = document.getElementById('reports-state');
+  var reportsContent = document.getElementById('reports-content');
+  var reportsRefresh = document.getElementById('reports-refresh-btn');
+
+  reportsRefresh.addEventListener('click', loadReports);
+
+  function loadReports() {
+    showStateMsg(reportsState, 'Loading report\u2026', false);
+    reportsContent.style.display = 'none';
+    reportsContent.innerHTML = '';
+
+    Promise.all([
+      apiFetch('/admin/reports/summary'),
+      apiFetch('/status').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+    ]).then(function (results) {
+      var summaryResp = results[0];
+      var statusData  = results[1];
+
+      if (summaryResp.status === 403) { handle403(reportsState); return; }
+      if (!summaryResp.ok) { showStateMsg(reportsState, 'Error ' + summaryResp.status + ': ' + summaryResp.statusText, true); return; }
+
+      return summaryResp.json().then(function (summary) {
+        renderReports(summary, statusData);
+      });
+    }).catch(function (err) {
+      showStateMsg(reportsState, 'Network error: ' + err.message, true);
+    });
+  }
+
+  function renderReports(summary, status) {
+    reportsState.style.display = 'none';
+    reportsContent.style.display = '';
+
+    var activityRows = [
+      ['Total Requests',   summary.total_requests != null ? summary.total_requests : 'N/A'],
+      ['Total Errors',     summary.total_errors != null ? summary.total_errors : 'N/A'],
+      ['Total LLM Calls',  summary.total_llm_calls != null ? summary.total_llm_calls : 'N/A'],
+      ['Documents Ingested', summary.total_docs_ingested != null ? summary.total_docs_ingested : 'N/A'],
+      ['Uptime',           formatUptime(summary.uptime_seconds)],
+    ];
+
+    var systemRows = status ? [
+      ['App Name',          status.app_name || 'N/A'],
+      ['Active Collection', status.collection_name || 'N/A'],
+      ['Document Count',    status.document_count != null ? status.document_count : 'N/A'],
+      ['Embedding Model',   status.embedding_model || 'N/A'],
+      ['Backend',           status.vectorstore_backend || 'N/A'],
+    ] : null;
+
+    var html = '<div class="metrics-grid">';
+
+    html += '<div class="card"><div class="card-title">Activity Summary</div>' +
+      buildMetricRows(activityRows) + '</div>';
+
+    if (systemRows) {
+      html += '<div class="card"><div class="card-title">System Info</div>' +
+        buildMetricRows(systemRows) + '</div>';
+    }
+
+    html += '</div>';
+
+    reportsContent.innerHTML = html;
+  }
+
+  /* ================================================================
+     INITIAL LOAD
+     ================================================================ */
+
+  loadCollections();
+
+}());
+</script>
+
+</body>
+</html>

@@ -284,6 +284,89 @@ class QdrantBackend(VectorStoreBackend):
         info = self._client.get_collection(collection_name)
         return self._document_count(collection_name, info.points_count)
 
+    def sample_chunks(self, collection_name: str, limit: int = 10, offset: int = 0) -> dict:
+        """Return a sample of chunks with text truncated to 500 characters.
+
+        Filters out the provenance sentinel point and adjusts total_count accordingly.
+        """
+        if not self._client.collection_exists(collection_name):
+            raise ValueError(f"Collection '{collection_name}' not found")
+
+        info = self._client.get_collection(collection_name)
+        raw_count = info.points_count or 0
+        total_count = self._document_count(collection_name, raw_count)
+
+        # Request extra to account for sentinel possibly consuming a slot
+        results, _next_offset = self._client.scroll(
+            collection_name=collection_name,
+            limit=limit + 1,
+            offset=offset,
+            with_payload=True,
+        )
+
+        chunks = []
+        for point in results:
+            payload = point.payload or {}
+            if payload.get("_provenance"):
+                continue
+            if len(chunks) >= limit:
+                break
+            text = payload.get("page_content", "")
+            metadata = payload.get("metadata", {})
+            chunks.append(
+                {
+                    "id": str(point.id),
+                    "text": text[:500],
+                    "metadata": metadata,
+                }
+            )
+
+        return {"total_count": total_count, "chunks": chunks}
+
+    def list_sources(self, collection_name: str) -> dict:
+        """Return unique source filenames and chunk counts. Scans at most 10k chunks.
+
+        Filters out the provenance sentinel point.
+        """
+        if not self._client.collection_exists(collection_name):
+            raise ValueError(f"Collection '{collection_name}' not found")
+
+        total = self.count(collection_name)
+        scan_limit = 10000
+        source_counts: dict[str, int] = {}
+        real_scanned = 0
+        offset = None
+
+        while real_scanned < scan_limit:
+            batch_limit = min(100, scan_limit - real_scanned + 1)
+            results, next_offset = self._client.scroll(
+                collection_name=collection_name,
+                limit=batch_limit,
+                offset=offset,
+                with_payload=True,
+            )
+            if not results:
+                break
+            for point in results:
+                payload = point.payload or {}
+                if payload.get("_provenance"):
+                    continue
+                real_scanned += 1
+                if real_scanned > scan_limit:
+                    break
+                metadata = payload.get("metadata", {})
+                source = metadata.get("source", "unknown")
+                source_counts[source] = source_counts.get(source, 0) + 1
+            if next_offset is None:
+                break
+            offset = next_offset
+
+        return {
+            "sources": [{"filename": source, "chunk_count": count} for source, count in sorted(source_counts.items())],
+            "scanned_chunks": real_scanned,
+            "truncated": total > real_scanned,
+        }
+
     def get_embedding_provenance(self, collection_name: str) -> Optional[dict]:
         """Return stored embedding provenance from sentinel point."""
         try:

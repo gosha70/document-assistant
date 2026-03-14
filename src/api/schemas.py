@@ -69,5 +69,29 @@ class DuplicateDetectedResponse(BaseModel):
     collection_name: str
 
 
+class ChunkSample(BaseModel):
+    id: str
+    text: str
+    metadata: dict
+
+
+class ChunkSampleResponse(BaseModel):
+    collection_name: str
+    total_count: int
+    chunks: list[ChunkSample]
+
+
+class SourceInfo(BaseModel):
+    filename: str
+    chunk_count: int
+
+
+class SourceListResponse(BaseModel):
+    collection_name: str
+    sources: list[SourceInfo]
+    truncated: bool = False
+    scanned_chunks: int = 0
+
+
 class ErrorResponse(BaseModel):
     detail: str

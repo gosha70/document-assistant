@@ -58,3 +58,21 @@ class VectorStoreBackend(ABC):
         is unknown (e.g. collections created before provenance tracking).
         """
         return None
+
+    @abstractmethod
+    def sample_chunks(self, collection_name: str, limit: int = 10, offset: int = 0) -> dict:
+        """Return a sample of chunks from a collection.
+
+        Returns a dict with 'total_count' (int) and 'chunks' (list of dicts with
+        'id', 'text', and 'metadata' keys). Text is truncated to 500 characters.
+        """
+
+    @abstractmethod
+    def list_sources(self, collection_name: str) -> dict:
+        """Return unique source filenames and their chunk counts.
+
+        Returns a dict with:
+          - 'sources': list of dicts with 'filename' and 'chunk_count' keys
+          - 'scanned_chunks': number of chunks actually scanned
+          - 'truncated': True if the scan hit the 10k limit before reading all chunks
+        """

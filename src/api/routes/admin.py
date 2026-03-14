@@ -1,7 +1,14 @@
 import logging
 from fastapi import APIRouter, HTTPException
 
-from src.api.schemas import CollectionInfo, JobInfo
+from src.api.schemas import (
+    CollectionInfo,
+    JobInfo,
+    ChunkSampleResponse,
+    ChunkSample,
+    SourceListResponse,
+    SourceInfo,
+)
 from src.api.deps import get_vectorstore_backend
 from src.config.settings import get_settings
 from src.utils.metrics import get_metrics_collector
@@ -13,6 +20,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 # --- Collections ---
+
 
 @router.get("/collections", response_model=list[CollectionInfo])
 def list_collections():
@@ -63,6 +71,38 @@ def migrate_collection(collection_name: str):
         "embedding_model": backend._embedding.model_name,
         "embedding_type": backend._embedding_type,
     }
+
+
+@router.get("/collections/{collection_name}/chunks", response_model=ChunkSampleResponse)
+def sample_chunks(collection_name: str, limit: int = 10, offset: int = 0):
+    """Return a paginated sample of chunks from a collection."""
+    limit = min(limit, 50)
+    backend = get_vectorstore_backend()
+    try:
+        result = backend.sample_chunks(collection_name, limit=limit, offset=offset)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return ChunkSampleResponse(
+        collection_name=collection_name,
+        total_count=result["total_count"],
+        chunks=[ChunkSample(**c) for c in result["chunks"]],
+    )
+
+
+@router.get("/collections/{collection_name}/sources", response_model=SourceListResponse)
+def list_sources(collection_name: str):
+    """Return unique source filenames and their chunk counts for a collection."""
+    backend = get_vectorstore_backend()
+    try:
+        result = backend.list_sources(collection_name)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return SourceListResponse(
+        collection_name=collection_name,
+        sources=[SourceInfo(**s) for s in result["sources"]],
+        truncated=result["truncated"],
+        scanned_chunks=result["scanned_chunks"],
+    )
 
 
 @router.post("/collections/{collection_name}/reindex", response_model=JobInfo)
@@ -125,6 +165,7 @@ def trigger_import():
 
 # --- Jobs ---
 
+
 @router.get("/jobs", response_model=list[JobInfo])
 def list_jobs():
     """List all jobs."""
@@ -182,6 +223,7 @@ def cancel_job(job_id: str):
 
 
 # --- Metrics & Reports ---
+
 
 @router.get("/metrics/runtime")
 def get_runtime_metrics():
