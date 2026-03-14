@@ -43,6 +43,7 @@ class ModelSettings(BaseModel):
     default_model_id: str
     default_model_basename: str
     n_ctx: int
+    max_tokens: int
     n_batch: int
     n_gpu_layers: int
     cache_dir: str

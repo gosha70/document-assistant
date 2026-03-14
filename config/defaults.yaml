@@ -19,6 +19,7 @@ model:
   default_model_id: "TheBloke/Llama-2-7b-Chat-GGUF"
   default_model_basename: "llama-2-7b-chat.Q4_K_M.gguf"
   n_ctx: 6144
+  max_tokens: 512
   n_batch: 512
   n_gpu_layers: 40
   cache_dir: "./model_cache/"

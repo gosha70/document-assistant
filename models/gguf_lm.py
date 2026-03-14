@@ -5,10 +5,11 @@ from huggingface_hub import hf_hub_download
 from langchain_community.llms import LlamaCpp
 
 from .models_constants import (
-    N_CTX, 
-    N_BATCH, 
-    N_GPU_LAYERS, 
-    DEVICE_TYPE_MPS, 
+    N_CTX,
+    MAX_TOKENS,
+    N_BATCH,
+    N_GPU_LAYERS,
+    DEVICE_TYPE_MPS,
     DEVICE_TYPE_CUDA
 )
 
@@ -41,8 +42,8 @@ def load_gguf_model(model_info, cache_dir):
         params = {
             "model_path": model_path,
             "n_ctx": N_CTX,
-            "max_tokens": N_CTX,
-            "n_batch": N_BATCH,  
+            "max_tokens": MAX_TOKENS,
+            "n_batch": N_BATCH,
             "verbose": True,
         }
         if model_info.device_type.lower() == DEVICE_TYPE_MPS:

@@ -6,6 +6,7 @@ import torch
 DEVICE_MAP = "auto"
 
 N_CTX = 6144
+MAX_TOKENS = 512
 
 # How many tokens are processed in parallel, default is 8, set to bigger number.
 # Should be between 1 and N_CTX, consider the amount of VRAM in your GPU.

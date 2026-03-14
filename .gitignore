@@ -3,6 +3,7 @@ __pycache__/
 model_cache/*
 /.claude
 /659e79ce-1012-4c48-8c7a-fb40198fd029
+chroma/
 chroma.sqlite3
 !tests/fixtures/**/chroma.sqlite3
 .venv/
@@ -10,3 +11,4 @@ chroma.sqlite3
 dist/
 .pytest_cache/
 .ruff_cache/
+/chroma
