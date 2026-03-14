@@ -106,10 +106,12 @@ class ChromaBackend(VectorStoreBackend):
                     _PROVENANCE_KEY_TYPE: self._embedding_type,
                 },
             )
-            collection.modify(metadata={
-                _PROVENANCE_KEY_MODEL: self._embedding.model_name,
-                _PROVENANCE_KEY_TYPE: self._embedding_type,
-            })
+            collection.modify(
+                metadata={
+                    _PROVENANCE_KEY_MODEL: self._embedding.model_name,
+                    _PROVENANCE_KEY_TYPE: self._embedding_type,
+                }
+            )
         except Exception as e:
             logger.warning(f"Failed to set embedding provenance on '{collection_name}': {e}")
 
@@ -185,13 +187,15 @@ class ChromaBackend(VectorStoreBackend):
             name = collection if isinstance(collection, str) else collection.name
             provenance = self.get_embedding_provenance(name)
             embedding_model = provenance["model_name"] if provenance else "unknown"
-            results.append({
-                "name": name,
-                "backend": "chroma",
-                "document_count": self._client.get_collection(name).count(),
-                "persist_directory": self._persist_directory,
-                "embedding_model": embedding_model,
-            })
+            results.append(
+                {
+                    "name": name,
+                    "backend": "chroma",
+                    "document_count": self._client.get_collection(name).count(),
+                    "persist_directory": self._persist_directory,
+                    "embedding_model": embedding_model,
+                }
+            )
         return results
 
     def count(self, collection_name: str) -> int:
@@ -216,6 +220,15 @@ class ChromaBackend(VectorStoreBackend):
         except Exception:
             pass
         return None
+
+    def find_by_source(self, source_name: str, collection_name: str) -> list[str]:
+        """Return document IDs whose 'source' metadata matches the given filename."""
+        try:
+            collection = self._client.get_collection(collection_name)
+        except Exception:
+            return []
+        results = collection.get(where={"source": source_name}, include=[])
+        return results.get("ids", [])
 
     def as_retriever(self, collection_name: str, **kwargs):
         """Return a LangChain retriever for backward compatibility."""

@@ -42,6 +42,8 @@ class Retriever:
 
         logger.info(f"Retrieved {len(docs)} candidates for query")
 
+        docs = self._deduplicate(docs)
+
         if self._reranker and len(docs) > self._final_k:
             docs = self._reranker.rerank(query=query, documents=docs, top_k=self._final_k)
             logger.info(f"Reranked to {len(docs)} documents")
@@ -49,3 +51,17 @@ class Retriever:
             docs = docs[: self._final_k]
 
         return docs
+
+    @staticmethod
+    def _deduplicate(docs: list[Document]) -> list[Document]:
+        """Remove duplicate documents based on page_content."""
+        seen: set[str] = set()
+        unique: list[Document] = []
+        for doc in docs:
+            key = doc.page_content.strip()
+            if key not in seen:
+                seen.add(key)
+                unique.append(doc)
+        if len(unique) < len(docs):
+            logger.info(f"Deduplicated {len(docs)} → {len(unique)} candidates")
+        return unique

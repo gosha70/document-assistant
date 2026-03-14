@@ -44,6 +44,13 @@ class VectorStoreBackend(ABC):
     def count(self, collection_name: str) -> int:
         """Return number of documents in a collection."""
 
+    @abstractmethod
+    def find_by_source(self, source_name: str, collection_name: str) -> list[str]:
+        """Return document IDs whose 'source' metadata matches the given filename.
+
+        Used for duplicate detection and replacement at ingest time.
+        """
+
     def get_embedding_provenance(self, collection_name: str) -> Optional[dict]:
         """Return the embedding model/type that was used to build a collection.
 

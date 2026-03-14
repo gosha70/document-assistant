@@ -1,8 +1,11 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from src.config.settings import get_settings
 from src.api.middleware.auth import AuthMiddleware
@@ -137,6 +140,16 @@ async def lifespan(app: FastAPI):
     set_vectorstore_backend(backend)
     logger.info(f"Vector store backend ready: {settings.vectorstore.backend}")
 
+    # Auto-migrate legacy collections: stamp provenance on any collection missing it
+    try:
+        for col in backend.list_collections():
+            name = col["name"]
+            if backend.get_embedding_provenance(name) is None:
+                backend._set_provenance(name)
+                logger.info(f"Migrated legacy collection '{name}' — stamped provenance: {backend._embedding.model_name}")
+    except Exception as e:
+        logger.warning(f"Legacy collection migration check failed: {e}")
+
     # Initialise reranker (config-driven)
     reranker = _create_reranker(settings)
     set_reranker(reranker)
@@ -188,6 +201,20 @@ def create_app() -> FastAPI:
     @app.get("/health")
     def health():
         return {"status": "ok"}
+
+    @app.get("/")
+    def root():
+        return RedirectResponse(url="/static/index.html")
+
+    # Serve the chat UI from /static
+    _static_dir = os.path.join(os.path.dirname(__file__), "..", "..", "static")
+    if os.path.isdir(_static_dir):
+        app.mount("/static", StaticFiles(directory=_static_dir), name="static")
+
+    # Serve existing icons and CSS from /assets
+    _assets_dir = os.path.join(os.path.dirname(__file__), "..", "..", "app", "assets")
+    if os.path.isdir(_assets_dir):
+        app.mount("/assets", StaticFiles(directory=_assets_dir), name="assets")
 
     return app
 

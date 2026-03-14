@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>D.O.T. &mdash; Document of Things</title>
+  <style>
+    /* ---- Reset / Base ---- */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #121212;
+      color: #E4E4E7;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ---- Top HR ---- */
+    .top-hr {
+      height: 3px;
+      background-color: #6366F1;
+      border: none;
+    }
+
+    /* ---- Header ---- */
+    .header {
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: #121212;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .header-left img {
+      height: 64px;
+      width: 64px;
+    }
+
+    .header-title {
+      font-size: 2.2em;
+      color: #E4E4E7;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .header-subtitle {
+      font-size: 1em;
+      color: #999;
+      font-style: italic;
+      margin-top: 4px;
+    }
+
+    /* Settings gear button */
+    .settings-btn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: #999;
+      font-size: 1.4em;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: color 0.2s;
+    }
+    .settings-btn:hover { color: #E4E4E7; }
+
+    /* ---- Settings modal ---- */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: #1F1F1F;
+      border: 1px solid #3F3F46;
+      border-radius: 12px;
+      padding: 24px;
+      width: 420px;
+      max-width: 95vw;
+    }
+
+    .modal h3 {
+      margin-bottom: 14px;
+      font-size: 1.1em;
+      color: #E4E4E7;
+    }
+
+    .modal label {
+      display: block;
+      font-size: 0.85em;
+      color: #999;
+      margin-bottom: 6px;
+    }
+
+    .modal input {
+      width: 100%;
+      background: #2D2D2D;
+      border: 1px solid #3F3F46;
+      border-radius: 8px;
+      color: #E4E4E7;
+      padding: 8px 10px;
+      font-size: 0.9em;
+      margin-bottom: 16px;
+    }
+
+    .modal input:focus { outline: none; border-color: #6366F1; }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9em;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: #6366F1; color: #fff; }
+    .btn-secondary { background: #3F3F46; color: #E4E4E7; }
+    .btn-danger { background: #dc2626; color: #fff; }
+
+    .dup-list {
+      margin: 10px 0 16px;
+      padding: 0;
+      list-style: none;
+      font-size: 0.85em;
+      color: #E4E4E7;
+    }
+    .dup-list li {
+      padding: 4px 0;
+      border-bottom: 1px solid #2D2D2D;
+    }
+    .dup-list li:last-child { border-bottom: none; }
+    .dup-chunks { color: #999; margin-left: 6px; }
+
+    /* ---- Main layout ---- */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 860px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    /* ---- Chat box ---- */
+    .chat-box {
+      flex: 1;
+      min-height: 320px;
+      max-height: calc(100vh - 280px);
+      overflow-y: auto;
+      background-color: #1F1F1F;
+      border: 1px solid #3F3F46;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
+    /* ---- Chat bubbles ---- */
+    .chat-bubble {
+      border-radius: 12px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+    }
+
+    .user-bubble { background-color: #2D2D2D; color: #E4E4E7; }
+    .system-bubble { background-color: #4B5563; color: #F3F4F6; }
+    .error-bubble { background-color: #2D2D2D; color: #f65757; font-style: italic; }
+
+    .bubble-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+      gap: 6px;
+    }
+
+    .bubble-header img {
+      height: 28px;
+      width: 28px;
+    }
+
+    .bubble-datetime {
+      font-size: 0.78em;
+      color: #AAA;
+      margin-left: auto;
+    }
+
+    /* ---- Markdown-rendered content ---- */
+    .chat-message {
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .chat-message code {
+      color: #44bbcc;
+      font-family: 'Courier New', Courier, monospace;
+      font-style: italic;
+      background: rgba(0,0,0,0.25);
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+
+    .chat-message pre {
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      padding: 10px 12px;
+      overflow-x: auto;
+      margin: 8px 0;
+    }
+
+    .chat-message pre code {
+      background: none;
+      padding: 0;
+    }
+
+    .chat-message strong { font-weight: 700; }
+    .chat-message em { font-style: italic; }
+
+    /* ---- Sources collapsible ---- */
+    .sources-section {
+      margin-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding-top: 8px;
+    }
+
+    .sources-toggle {
+      background: transparent;
+      border: none;
+      color: #AAA;
+      font-size: 0.82em;
+      cursor: pointer;
+      padding: 2px 0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .sources-toggle:hover { color: #E4E4E7; }
+
+    .sources-list {
+      display: none;
+      margin-top: 8px;
+    }
+    .sources-list.open { display: block; }
+
+    .source-item {
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      font-size: 0.82em;
+    }
+
+    .source-file {
+      font-weight: 600;
+      color: #6366F1;
+      margin-bottom: 3px;
+    }
+
+    .source-page { color: #AAA; font-size: 0.9em; }
+
+    .source-excerpt {
+      color: #D1D5DB;
+      margin-top: 4px;
+      font-style: italic;
+    }
+
+    /* ---- Input area ---- */
+    .input-area {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      background: #1F1F1F;
+      border: 1px solid #3F3F46;
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+
+    .attach-btn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      flex-shrink: 0;
+    }
+    .attach-btn img { height: 36px; width: 36px; }
+    .attach-btn:hover { opacity: 0.75; }
+
+    #file-input { display: none; }
+
+    textarea#msg-input {
+      flex: 1;
+      background: #2D2D2D;
+      border: 1px solid #3F3F46;
+      border-radius: 8px;
+      color: #E4E4E7;
+      font-size: 0.95em;
+      padding: 8px 10px;
+      resize: none;
+      min-height: 44px;
+      max-height: 160px;
+      line-height: 1.5;
+      font-family: inherit;
+    }
+    textarea#msg-input::placeholder { color: #666; }
+    textarea#msg-input:focus { outline: none; border-color: #6366F1; }
+
+    .send-btn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      flex-shrink: 0;
+    }
+    .send-btn img { height: 42px; width: 42px; }
+    .send-btn:hover { opacity: 0.75; }
+    .send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* ---- Typing indicator ---- */
+    .typing-indicator span {
+      display: inline-block;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #AAA;
+      margin: 0 2px;
+      animation: bounce 1s infinite;
+    }
+    .typing-indicator span:nth-child(2) { animation-delay: 0.15s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0.30s; }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); }
+      40%           { transform: translateY(-6px); }
+    }
+
+    /* ---- Bottom HR ---- */
+    .bottom-hr {
+      height: 2px;
+      background-color: #EF4444;
+      border: none;
+      margin-top: auto;
+    }
+
+    /* ---- Footer ---- */
+    footer {
+      text-align: left;
+      padding: 8px 20px;
+      font-size: 0.78em;
+      color: #444;
+    }
+
+    /* ---- Document panel ---- */
+    .doc-panel {
+      background: #1F1F1F;
+      border: 1px solid #3F3F46;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .doc-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .doc-panel-header:hover { background: rgba(99,102,241,0.08); }
+
+    .doc-panel-title {
+      font-size: 0.85em;
+      font-weight: 600;
+      color: #999;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .doc-panel-title .doc-icon { font-size: 1em; }
+
+    .doc-badge {
+      background: #6366F1;
+      color: #fff;
+      font-size: 0.7em;
+      font-weight: 700;
+      border-radius: 10px;
+      padding: 2px 7px;
+      min-width: 20px;
+      text-align: center;
+    }
+
+    .doc-panel-toggle {
+      font-size: 0.75em;
+      color: #666;
+      transition: transform 0.2s;
+    }
+
+    .doc-panel-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease, padding 0.3s ease;
+      padding: 0 14px;
+    }
+
+    .doc-panel.open .doc-panel-body {
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 6px 14px 10px;
+    }
+
+    .doc-panel.open .doc-panel-toggle {
+      transform: rotate(90deg);
+    }
+
+    .doc-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(63,63,70,0.5);
+      font-size: 0.82em;
+    }
+
+    .doc-item:last-child { border-bottom: none; }
+
+    .doc-item-name {
+      color: #E4E4E7;
+      font-weight: 500;
+    }
+
+    .doc-item-meta {
+      color: #888;
+      font-size: 0.9em;
+    }
+
+    .doc-item-status {
+      font-size: 0.75em;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+
+    .doc-status-done { background: #064e3b; color: #6ee7b7; }
+    .doc-status-loading {
+      animation: pulse-loading 1s ease-in-out infinite alternate;
+      color: #fff;
+      font-weight: 600;
+    }
+    @keyframes pulse-loading {
+      0%   { background: #ca8a04; }
+      100% { background: #7f1d1d; }
+    }
+    .doc-status-error { background: #7f1d1d; color: #fca5a5; }
+
+    .doc-empty {
+      text-align: center;
+      color: #666;
+      padding: 10px 0;
+      font-size: 0.82em;
+      font-style: italic;
+    }
+
+    /* ---- Scrollbar ---- */
+    .chat-box::-webkit-scrollbar { width: 6px; }
+    .chat-box::-webkit-scrollbar-track { background: transparent; }
+    .chat-box::-webkit-scrollbar-thumb { background: #3F3F46; border-radius: 3px; }
+
+    .doc-panel-body::-webkit-scrollbar { width: 4px; }
+    .doc-panel-body::-webkit-scrollbar-thumb { background: #3F3F46; border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- Top accent line -->
+<hr class="top-hr" />
+
+<!-- Header -->
+<header class="header">
+  <div class="header-left">
+    <img src="/assets/chat_logo_small.png" alt="D.O.T. logo" />
+    <div>
+      <div class="header-title">D.O.T.</div>
+      <div class="header-subtitle">Document of Things</div>
+    </div>
+  </div>
+  <button class="settings-btn" id="settings-open-btn" title="Settings" aria-label="Open settings">&#9881;</button>
+</header>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+  <div class="modal">
+    <h3 id="settings-title">Settings</h3>
+    <label for="token-input">Bearer Token (stored in localStorage)</label>
+    <input type="password" id="token-input" placeholder="Paste your token here…" autocomplete="off" />
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="settings-cancel-btn">Cancel</button>
+      <button class="btn btn-primary" id="settings-save-btn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Duplicate Detection Modal -->
+<div class="modal-overlay" id="dup-modal" role="dialog" aria-modal="true" aria-labelledby="dup-title">
+  <div class="modal">
+    <h3 id="dup-title">Duplicate files detected</h3>
+    <p style="font-size:0.85em;color:#999;margin:0 0 6px;">The following files already exist in the collection:</p>
+    <ul class="dup-list" id="dup-list"></ul>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="dup-cancel-btn">Cancel</button>
+      <button class="btn btn-primary" id="dup-add-btn">Add as New</button>
+      <button class="btn btn-danger" id="dup-replace-btn">Replace</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main content -->
+<main class="main">
+  <div class="container">
+
+    <!-- Document panel -->
+    <div class="doc-panel" id="doc-panel">
+      <div class="doc-panel-header" id="doc-panel-header">
+        <span class="doc-panel-title">
+          <span class="doc-icon">&#128196;</span>
+          Documents
+          <span class="doc-badge" id="doc-count">0</span>
+        </span>
+        <span class="doc-panel-toggle">&#9656;</span>
+      </div>
+      <div class="doc-panel-body" id="doc-panel-body">
+        <div class="doc-empty" id="doc-empty">No documents uploaded yet</div>
+      </div>
+    </div>
+
+    <!-- Chat messages -->
+    <div class="chat-box" id="chat-box" aria-live="polite" aria-label="Chat messages"></div>
+
+    <!-- File input (hidden) -->
+    <input type="file" id="file-input" multiple />
+
+    <!-- Input row -->
+    <div class="input-area">
+      <button class="attach-btn" id="attach-btn" title="Upload file(s)" aria-label="Upload files">
+        <img src="/assets/attach_64.png" alt="Attach" />
+      </button>
+
+      <textarea
+        id="msg-input"
+        rows="2"
+        placeholder="I am ready to answer your question (Shift+Enter for newline)…"
+        aria-label="Message input"
+      ></textarea>
+
+      <button class="send-btn" id="send-btn" title="Send" aria-label="Send message">
+        <img src="/assets/chat_ask_light_64.png" alt="Send" />
+      </button>
+    </div>
+
+  </div>
+</main>
+
+<!-- Bottom accent line -->
+<hr class="bottom-hr" />
+
+<!-- Footer -->
+<footer>&copy; 2023 EGOGE - All Rights Reserved</footer>
+
+
+<script>
+(function () {
+  'use strict';
+
+  // ---- State ----
+  let isStreaming = false;
+
+  // ---- DOM refs ----
+  const chatBox     = document.getElementById('chat-box');
+  const msgInput    = document.getElementById('msg-input');
+  const sendBtn     = document.getElementById('send-btn');
+  const attachBtn   = document.getElementById('attach-btn');
+  const fileInput   = document.getElementById('file-input');
+
+  const settingsOpenBtn   = document.getElementById('settings-open-btn');
+  const settingsCancelBtn = document.getElementById('settings-cancel-btn');
+  const settingsSaveBtn   = document.getElementById('settings-save-btn');
+  const settingsModal     = document.getElementById('settings-modal');
+  const tokenInput        = document.getElementById('token-input');
+
+  // ---- Auth helpers ----
+  function getToken() {
+    return localStorage.getItem('dot_token') || '';
+  }
+
+  function authHeaders() {
+    const t = getToken();
+    return t ? { 'Authorization': 'Bearer ' + t } : {};
+  }
+
+  // ---- Settings modal ----
+  settingsOpenBtn.addEventListener('click', function () {
+    tokenInput.value = getToken();
+    settingsModal.classList.add('open');
+    tokenInput.focus();
+  });
+
+  settingsCancelBtn.addEventListener('click', function () {
+    settingsModal.classList.remove('open');
+  });
+
+  settingsSaveBtn.addEventListener('click', function () {
+    const val = tokenInput.value.trim();
+    if (val) {
+      localStorage.setItem('dot_token', val);
+    } else {
+      localStorage.removeItem('dot_token');
+    }
+    settingsModal.classList.remove('open');
+  });
+
+  // Close modal on overlay click
+  settingsModal.addEventListener('click', function (e) {
+    if (e.target === settingsModal) settingsModal.classList.remove('open');
+  });
+
+  // ---- Markdown renderer (minimal) ----
+  function renderMarkdown(text) {
+    if (!text) return '';
+
+    // Escape HTML first
+    let s = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    // Fenced code blocks (``` ... ```)
+    s = s.replace(/```([\s\S]*?)```/g, function (_, code) {
+      return '<pre><code>' + code.trim() + '</code></pre>';
+    });
+
+    // Inline code (`...`)
+    s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+
+    // Bold (**text** or __text__)
+    s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/__(.+?)__/g, '<strong>$1</strong>');
+
+    // Italic (*text* or _text_)
+    s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    s = s.replace(/_([^_]+?)_/g, '<em>$1</em>');
+
+    // Newlines to <br> (but not inside pre blocks — we do a simple pass)
+    s = s.replace(/\n/g, '<br />');
+
+    return s;
+  }
+
+  // ---- Timestamp ----
+  function nowStr() {
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // ---- Scroll to bottom ----
+  function scrollBottom() {
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  // ---- Append user bubble ----
+  function appendUserBubble(text) {
+    const div = document.createElement('div');
+    div.className = 'chat-bubble user-bubble';
+    div.innerHTML =
+      '<div class="bubble-header">' +
+        '<img src="/assets/chat_user_32.png" alt="You" />' +
+        '<strong>You</strong>' +
+        '<span class="bubble-datetime">' + nowStr() + '</span>' +
+      '</div>' +
+      '<div class="chat-message user-message">' + escapeHtml(text) + '</div>';
+    chatBox.appendChild(div);
+    scrollBottom();
+  }
+
+  // ---- Append bot bubble (returns content div for streaming) ----
+  function appendBotBubble(iconSrc, isError) {
+    iconSrc = iconSrc || '/assets/chat_bot_32.png';
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble ' + (isError ? 'error-bubble' : 'system-bubble');
+
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'chat-message system-message';
+
+    bubble.innerHTML =
+      '<div class="bubble-header">' +
+        '<img src="' + iconSrc + '" alt="D.O.T." />' +
+        '<strong>D.O.T.</strong>' +
+        '<span class="bubble-datetime">' + nowStr() + '</span>' +
+      '</div>';
+    bubble.appendChild(contentDiv);
+    chatBox.appendChild(bubble);
+    scrollBottom();
+    return { bubble, contentDiv };
+  }
+
+  // ---- Append sources to an existing bubble ----
+  function appendSources(bubble, sources) {
+    if (!sources || sources.length === 0) return;
+
+    const section = document.createElement('div');
+    section.className = 'sources-section';
+
+    const toggle = document.createElement('button');
+    toggle.className = 'sources-toggle';
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.innerHTML = '&#9656; Sources (' + sources.length + ')';
+
+    const list = document.createElement('div');
+    list.className = 'sources-list';
+
+    sources.forEach(function (src) {
+      const item = document.createElement('div');
+      item.className = 'source-item';
+      const pageStr = src.page != null ? '<span class="source-page"> &middot; Page ' + src.page + '</span>' : '';
+      item.innerHTML =
+        '<div class="source-file">' + escapeHtml(src.file) + pageStr + '</div>' +
+        '<div class="source-excerpt">' + escapeHtml(src.excerpt || '') + '</div>';
+      list.appendChild(item);
+    });
+
+    toggle.addEventListener('click', function () {
+      const isOpen = list.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', String(isOpen));
+      toggle.innerHTML = (isOpen ? '&#9662;' : '&#9656;') + ' Sources (' + sources.length + ')';
+    });
+
+    section.appendChild(toggle);
+    section.appendChild(list);
+    bubble.appendChild(section);
+    scrollBottom();
+  }
+
+  // ---- Typing indicator ----
+  function showTypingIndicator() {
+    const { bubble, contentDiv } = appendBotBubble('/assets/chat_bot_32.png', false);
+    contentDiv.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+    bubble.dataset.typingIndicator = 'true';
+    return bubble;
+  }
+
+  function removeTypingIndicator() {
+    const el = chatBox.querySelector('[data-typing-indicator="true"]');
+    if (el) el.remove();
+  }
+
+  // ---- HTML escape ----
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // ---- Set streaming state ----
+  function setStreaming(val) {
+    isStreaming = val;
+    sendBtn.disabled = val;
+    msgInput.disabled = val;
+    attachBtn.disabled = val;
+  }
+
+  // ---- Send message ----
+  async function sendMessage() {
+    const question = msgInput.value.trim();
+    if (!question || isStreaming) return;
+
+    msgInput.value = '';
+    autoResizeTextarea();
+
+    appendUserBubble(question);
+    setStreaming(true);
+
+    const typingBubble = showTypingIndicator();
+
+    let accumulatedRaw = '';
+    let botBubbleRef = null;
+    let botContentDiv = null;
+
+    try {
+      const response = await fetch('/chat/stream', {
+        method: 'POST',
+        headers: Object.assign(
+          { 'Content-Type': 'application/json' },
+          authHeaders()
+        ),
+        body: JSON.stringify({ question: question }),
+      });
+
+      if (!response.ok) {
+        removeTypingIndicator();
+        const errJson = await response.json().catch(function () { return { detail: response.statusText }; });
+        const { contentDiv } = appendBotBubble('/assets/chat_bot_upset_32.png', true);
+        contentDiv.textContent = 'Error ' + response.status + ': ' + (errJson.detail || response.statusText);
+        setStreaming(false);
+        return;
+      }
+
+      // Replace typing indicator with bot bubble showing dots until first token
+      removeTypingIndicator();
+      const refs = appendBotBubble('/assets/chat_bot_32.png', false);
+      botBubbleRef = refs.bubble;
+      botContentDiv = refs.contentDiv;
+      botContentDiv.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+      let firstToken = true;
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // keep incomplete line
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6).trim();
+
+          if (data === '[DONE]') {
+            break;
+          }
+
+          let parsed;
+          try {
+            parsed = JSON.parse(data);
+          } catch (_) {
+            continue;
+          }
+
+          if (parsed.type === 'token') {
+            if (firstToken) {
+              botContentDiv.innerHTML = '';
+              firstToken = false;
+            }
+            accumulatedRaw += parsed.content;
+            botContentDiv.innerHTML = renderMarkdown(accumulatedRaw);
+            scrollBottom();
+          } else if (parsed.type === 'sources') {
+            appendSources(botBubbleRef, parsed.sources);
+          } else if (parsed.type === 'error') {
+            botBubbleRef.className = 'chat-bubble error-bubble';
+            botContentDiv.innerHTML =
+              '<img src="/assets/chat_bot_upset_32.png" alt="" style="height:20px;vertical-align:middle;margin-right:6px;" />' +
+              escapeHtml(parsed.detail || 'An error occurred.');
+          }
+        }
+      }
+
+    } catch (err) {
+      removeTypingIndicator();
+      if (botBubbleRef) {
+        botBubbleRef.className = 'chat-bubble error-bubble';
+        botContentDiv.textContent = 'Network error: ' + err.message;
+      } else {
+        const { contentDiv } = appendBotBubble('/assets/chat_bot_upset_32.png', true);
+        contentDiv.textContent = 'Network error: ' + err.message;
+      }
+    } finally {
+      setStreaming(false);
+    }
+  }
+
+  // ---- Document panel ----
+  const docPanel       = document.getElementById('doc-panel');
+  const docPanelHeader = document.getElementById('doc-panel-header');
+  const docPanelBody   = document.getElementById('doc-panel-body');
+  const docCountBadge  = document.getElementById('doc-count');
+  const docEmpty       = document.getElementById('doc-empty');
+  let totalChunks = 0;
+
+  docPanelHeader.addEventListener('click', function () {
+    docPanel.classList.toggle('open');
+  });
+
+  function addDocEntry(filename, status, detail) {
+    docEmpty.style.display = 'none';
+    const item = document.createElement('div');
+    item.className = 'doc-item';
+    item.dataset.filename = filename;
+
+    const statusClass = status === 'done' ? 'doc-status-done'
+                      : status === 'error' ? 'doc-status-error'
+                      : 'doc-status-loading';
+    const statusLabel = status === 'done' ? detail
+                      : status === 'error' ? 'Error'
+                      : 'Processing...';
+
+    item.innerHTML =
+      '<span class="doc-item-name">' + escapeHtml(filename) + '</span>' +
+      '<span class="doc-item-status ' + statusClass + '">' + escapeHtml(statusLabel) + '</span>';
+    docPanelBody.appendChild(item);
+    return item;
+  }
+
+  function updateDocEntry(item, status, detail) {
+    const statusEl = item.querySelector('.doc-item-status');
+    statusEl.className = 'doc-item-status ' +
+      (status === 'done' ? 'doc-status-done' : 'doc-status-error');
+    statusEl.textContent = detail;
+  }
+
+  function updateDocCount() {
+    docCountBadge.textContent = totalChunks;
+  }
+
+  // ---- File upload ----
+  attachBtn.addEventListener('click', function () {
+    fileInput.click();
+  });
+
+  // ---- Duplicate modal wiring ----
+  const dupModal      = document.getElementById('dup-modal');
+  const dupList       = document.getElementById('dup-list');
+  const dupCancelBtn  = document.getElementById('dup-cancel-btn');
+  const dupAddBtn     = document.getElementById('dup-add-btn');
+  const dupReplaceBtn = document.getElementById('dup-replace-btn');
+  let pendingUploadFiles = null;   // stashed File[] while modal is open
+  let pendingUploadEntries = null; // stashed DOM entries
+
+  function closeDupModal() { dupModal.classList.remove('open'); }
+  dupCancelBtn.addEventListener('click', function () {
+    closeDupModal();
+    if (pendingUploadEntries) {
+      pendingUploadEntries.forEach(function (item) { updateDocEntry(item, 'error', 'Cancelled'); });
+    }
+    pendingUploadFiles = null;
+    pendingUploadEntries = null;
+  });
+  dupModal.addEventListener('click', function (e) {
+    if (e.target === dupModal) {
+      dupCancelBtn.click();
+    }
+  });
+  dupAddBtn.addEventListener('click', function () {
+    closeDupModal();
+    if (pendingUploadFiles) doIngest(pendingUploadFiles, pendingUploadEntries, 'add');
+    pendingUploadFiles = null;
+    pendingUploadEntries = null;
+  });
+  dupReplaceBtn.addEventListener('click', function () {
+    closeDupModal();
+    if (pendingUploadFiles) doIngest(pendingUploadFiles, pendingUploadEntries, 'replace');
+    pendingUploadFiles = null;
+    pendingUploadEntries = null;
+  });
+
+  async function doIngest(files, entries, strategy) {
+    const formData = new FormData();
+    files.forEach(function (f) { formData.append('files', f); });
+    formData.append('duplicate_strategy', strategy);
+
+    try {
+      const response = await fetch('/ingest', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(function () { return { detail: response.statusText }; });
+        const errMsg = errJson.detail || response.statusText;
+        entries.forEach(function (item) { updateDocEntry(item, 'error', errMsg); });
+        return;
+      }
+
+      const result = await response.json();
+
+      // Duplicate detection response — show modal
+      if (result.duplicates) {
+        dupList.innerHTML = '';
+        result.duplicates.forEach(function (d) {
+          const li = document.createElement('li');
+          li.innerHTML = escapeHtml(d.filename) + '<span class="dup-chunks">(' + d.existing_chunk_count + ' existing chunks)</span>';
+          dupList.appendChild(li);
+        });
+        pendingUploadFiles = files;
+        pendingUploadEntries = entries;
+        dupModal.classList.add('open');
+        return;
+      }
+
+      // Normal success
+      const chunks = result.document_count || 0;
+      const replaced = result.replaced_count || 0;
+      totalChunks += chunks - replaced;
+      updateDocCount();
+      const perFile = files.length > 1
+        ? Math.round(chunks / files.length) + ' chunks (avg)'
+        : chunks + ' chunks';
+      entries.forEach(function (item) { updateDocEntry(item, 'done', perFile); });
+    } catch (err) {
+      entries.forEach(function (item) { updateDocEntry(item, 'error', err.message); });
+    }
+  }
+
+  fileInput.addEventListener('change', async function () {
+    const files = Array.from(fileInput.files);
+    if (!files.length) return;
+
+    fileInput.value = '';
+
+    // Open the panel to show progress
+    docPanel.classList.add('open');
+
+    // Add loading entries for each file
+    const entries = files.map(function (f) {
+      return addDocEntry(f.name, 'loading', '');
+    });
+
+    doIngest(files, entries, 'check');
+  });
+
+  // ---- Input events ----
+  msgInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  sendBtn.addEventListener('click', sendMessage);
+
+  // Auto-resize textarea
+  function autoResizeTextarea() {
+    msgInput.style.height = 'auto';
+    msgInput.style.height = Math.min(msgInput.scrollHeight, 160) + 'px';
+  }
+  msgInput.addEventListener('input', autoResizeTextarea);
+
+  // ---- Initial greeting ----
+  (function () {
+    const { contentDiv } = appendBotBubble('/assets/chat_bot_32.png', false);
+    contentDiv.innerHTML = renderMarkdown(
+      'Hello! I am **D.O.T.** — your Document of Things assistant.\n\n' +
+      'Upload files using the attach button, then ask me questions about their content.'
+    );
+  }());
+
+}());
+</script>
+
+</body>
+</html>

@@ -28,6 +28,7 @@ class IngestResponse(BaseModel):
     message: str
     document_count: int
     collection_name: str
+    replaced_count: int = 0
 
 
 class StatusResponse(BaseModel):
@@ -55,6 +56,17 @@ class JobInfo(BaseModel):
     error: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+
+
+class DuplicateFile(BaseModel):
+    filename: str
+    existing_chunk_count: int
+
+
+class DuplicateDetectedResponse(BaseModel):
+    message: str
+    duplicates: list[DuplicateFile]
+    collection_name: str
 
 
 class ErrorResponse(BaseModel):

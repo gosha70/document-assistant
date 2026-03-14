@@ -115,18 +115,21 @@ class QdrantBackend(VectorStoreBackend):
         """Store embedding provenance as a sentinel point in the collection."""
         try:
             from qdrant_client.models import PointStruct
+
             provenance_id = "00000000-0000-0000-0000-000000000000"
             self._client.upsert(
                 collection_name=collection_name,
-                points=[PointStruct(
-                    id=provenance_id,
-                    vector=[0.0] * self._get_vector_size(),
-                    payload={
-                        "_provenance": True,
-                        _PROVENANCE_KEY_MODEL: self._embedding.model_name,
-                        _PROVENANCE_KEY_TYPE: self._embedding_type,
-                    },
-                )],
+                points=[
+                    PointStruct(
+                        id=provenance_id,
+                        vector=[0.0] * self._get_vector_size(),
+                        payload={
+                            "_provenance": True,
+                            _PROVENANCE_KEY_MODEL: self._embedding.model_name,
+                            _PROVENANCE_KEY_TYPE: self._embedding_type,
+                        },
+                    )
+                ],
             )
         except Exception as e:
             logger.warning(f"Failed to set embedding provenance on '{collection_name}': {e}")
@@ -213,6 +216,35 @@ class QdrantBackend(VectorStoreBackend):
             return raw_points_count - 1
         return raw_points_count
 
+    def find_by_source(self, source_name: str, collection_name: str) -> list[str]:
+        """Return document IDs whose 'source' metadata matches the given filename."""
+        from qdrant_client.models import Filter, FieldCondition, MatchValue
+
+        if not self._client.collection_exists(collection_name):
+            return []
+
+        ids = []
+        offset = None
+        while True:
+            results = self._client.scroll(
+                collection_name=collection_name,
+                scroll_filter=Filter(
+                    must=[
+                        FieldCondition(key="metadata.source", match=MatchValue(value=source_name)),
+                    ]
+                ),
+                limit=100,
+                offset=offset,
+                with_payload=False,
+            )
+            points, next_offset = results
+            for point in points:
+                ids.append(str(point.id))
+            if next_offset is None:
+                break
+            offset = next_offset
+        return ids
+
     def get_collection_info(self, collection_name: str) -> dict:
         if not self._client.collection_exists(collection_name):
             raise ValueError(f"Collection '{collection_name}' not found")
@@ -235,13 +267,15 @@ class QdrantBackend(VectorStoreBackend):
             info = self._client.get_collection(collection.name)
             provenance = self.get_embedding_provenance(collection.name)
             embedding_model = provenance["model_name"] if provenance else "unknown"
-            results.append({
-                "name": collection.name,
-                "backend": "qdrant",
-                "document_count": self._document_count(collection.name, info.points_count),
-                "persist_directory": None,
-                "embedding_model": embedding_model,
-            })
+            results.append(
+                {
+                    "name": collection.name,
+                    "backend": "qdrant",
+                    "document_count": self._document_count(collection.name, info.points_count),
+                    "persist_directory": None,
+                    "embedding_model": embedding_model,
+                }
+            )
         return results
 
     def count(self, collection_name: str) -> int:

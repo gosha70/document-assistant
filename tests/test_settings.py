@@ -1,4 +1,5 @@
 """Tests for config/settings loading from YAML."""
+
 import os
 import tempfile
 import pytest
@@ -36,7 +37,7 @@ class TestSettingsFromYaml:
 
     def test_system_prompt_loaded(self):
         s = get_settings()
-        assert "assist users" in s.system_prompt
+        assert "document assistant" in s.system_prompt
 
 
 class TestDeepMerge:

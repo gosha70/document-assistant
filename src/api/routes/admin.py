@@ -33,6 +33,38 @@ def get_collection(collection_name: str):
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@router.post("/collections/{collection_name}/migrate")
+def migrate_collection(collection_name: str):
+    """Stamp embedding provenance on a legacy collection (no re-embedding).
+
+    This allows legacy collections created before provenance tracking to pass
+    the compatibility gate without setting allow_legacy_collections=true.
+    """
+    backend = get_vectorstore_backend()
+    try:
+        backend.get_collection_info(collection_name)
+    except Exception:
+        raise HTTPException(status_code=404, detail=f"Collection '{collection_name}' not found")
+
+    provenance = backend.get_embedding_provenance(collection_name)
+    if provenance is not None:
+        return {
+            "status": "already_migrated",
+            "collection_name": collection_name,
+            "embedding_model": provenance["model_name"],
+            "embedding_type": provenance.get("type"),
+        }
+
+    backend._set_provenance(collection_name)
+
+    return {
+        "status": "migrated",
+        "collection_name": collection_name,
+        "embedding_model": backend._embedding.model_name,
+        "embedding_type": backend._embedding_type,
+    }
+
+
 @router.post("/collections/{collection_name}/reindex", response_model=JobInfo)
 def trigger_reindex(collection_name: str):
     """Trigger reindex from canonical sources."""

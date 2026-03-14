@@ -12,3 +12,4 @@ dist/
 .pytest_cache/
 .ruff_cache/
 /chroma
+/doc_internal
