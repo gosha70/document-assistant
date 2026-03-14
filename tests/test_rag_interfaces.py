@@ -52,8 +52,8 @@ class TestNoOpReranker:
 class TestChunking:
     def test_default_splitter(self):
         splitter = get_text_splitter()
-        assert splitter._chunk_size == 1000
-        assert splitter._chunk_overlap == 200
+        assert splitter._chunk_size == 512
+        assert splitter._chunk_overlap == 50
 
     def test_python_splitter_has_language_separators(self):
         splitter = get_text_splitter("py")

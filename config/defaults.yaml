@@ -10,8 +10,9 @@ embedding:
   normalize_embeddings: true
 
 chunking:
-  chunk_size: 1000
-  chunk_overlap: 200
+  chunk_size: 512
+  chunk_overlap: 50
+  tokenizer: "tiktoken:cl100k_base"
   batch_size: 300
 
 model:

@@ -16,6 +16,14 @@ from embeddings.unstructured.file_type import FileType
 from embeddings.unstructured.file_loader_query import FileLoaderQuery
 from embeddings.unstructured.document_splitter import DocumentSplitter
 from embeddings.unstructured.base_file_converter import BaseFileConverter
+from src.rag.chunking import enrich_chunk_metadata
+from src.config.settings import get_settings
+
+
+def _enrich_metadata(documents: List[Document]) -> List[Document]:
+    """Stamp token_count, tokenizer, and chunking_version on each chunk."""
+    settings = get_settings()
+    return enrich_chunk_metadata(documents, settings.chunking.tokenizer)
 
 
 def load_supported_documents(document_splitter: DocumentSplitter, dir_path: str) -> List[Document]:
@@ -51,13 +59,13 @@ def load_supported_documents(document_splitter: DocumentSplitter, dir_path: str)
                 split_docs.extend(file_splits)
                 file_type_counts[file_type] += 1
 
-    logging.info(f"Total document splits: {len(split_docs)}")  
+    logging.info(f"Total document splits: {len(split_docs)}")
     # Log the count of each file type found
     for file_type, count in file_type_counts.items():
         if count > 0:
             logging.info(f"Found {count} '{file_type.value}' files.")
-  
-    return split_docs
+
+    return _enrich_metadata(split_docs)
 
 def load_documents(document_splitter: DocumentSplitter, dir_path: str, file_loader_query: FileLoaderQuery) -> List[Document]:
     """
@@ -90,7 +98,7 @@ def load_documents(document_splitter: DocumentSplitter, dir_path: str, file_load
 
         logging.info(f"Total number of unstructured document splits: {len(split_docs)}")
 
-        return split_docs 
+        return _enrich_metadata(split_docs)
     except Exception as error:
         logging.error(f"Failed to process documents with extensions '{file_loader_query}' found in the path '{dir_path}': {str(error)}", exc_info=True)
 

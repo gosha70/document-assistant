@@ -10,7 +10,7 @@ from src.api.schemas import IngestResponse
 from src.api.middleware.upload import validate_upload
 from src.api.deps import get_vectorstore_backend
 from src.config.settings import get_settings
-from src.rag.chunking import get_text_splitter
+from src.rag.chunking import get_text_splitter, enrich_chunk_metadata
 from src.utils.metrics import get_metrics_collector
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,9 @@ def _load_and_split(file_path: str) -> list[Document]:
     if converter is None:
         return []
 
-    return converter.load_and_split_file(text_splitter=text_splitter, file_path=file_path)
+    documents = converter.load_and_split_file(text_splitter=text_splitter, file_path=file_path)
+    settings = get_settings()
+    return enrich_chunk_metadata(documents, settings.chunking.tokenizer)
 
 
 @router.post("/ingest", response_model=IngestResponse)

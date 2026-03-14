@@ -35,6 +35,7 @@ class EmbeddingSettings(BaseModel):
 class ChunkingSettings(BaseModel):
     chunk_size: int
     chunk_overlap: int
+    tokenizer: str
     batch_size: int
 
 

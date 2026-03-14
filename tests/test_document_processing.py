@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 from embeddings.unstructured.file_type import FileType
 from embeddings.unstructured.base_file_converter import BaseFileConverter
 from embeddings.unstructured.document_splitter import DocumentSplitter
-from embeddings.embeddings_constants import CHUNK_SIZE, CHUNK_OVERLAP
+from src.config.settings import get_settings
 
 
 class TestFileType:
@@ -37,8 +37,9 @@ class TestBaseFileConverter:
     def test_get_text_splitter_returns_splitter(self):
         splitter = BaseFileConverter.get_text_splitter(FileType.TEXT)
         assert splitter is not None
-        assert splitter._chunk_size == CHUNK_SIZE
-        assert splitter._chunk_overlap == CHUNK_OVERLAP
+        settings = get_settings()
+        assert splitter._chunk_size == settings.chunking.chunk_size
+        assert splitter._chunk_overlap == settings.chunking.chunk_overlap
 
     def test_get_text_splitter_with_language(self):
         splitter = BaseFileConverter.get_text_splitter(FileType.PYTHON)

@@ -5,23 +5,22 @@ from typing import List, Optional
 from langchain_core.documents.base import Document
 from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import (
-    Language, 
-    RecursiveCharacterTextSplitter,
+    Language,
     TextSplitter
 )
 from langchain_community.document_loaders.generic import GenericLoader
 from langchain_community.document_loaders.parsers import LanguageParser
-from embeddings.embeddings_constants import CHUNK_SIZE, CHUNK_OVERLAP
 from .file_type import FileType
 
-file_type_per_language = {
-    FileType.JAVA: Language.JAVA, 
-    FileType.JS: Language.JS,
-    FileType.HTML: Language.HTML, 
-    FileType.MARKDOWN: Language.MARKDOWN,
-    FileType.PYTHON: Language.PYTHON,
-    FileType.SQL: Language.SOL,
-    FileType.DDL: Language.SOL
+# Maps FileType enum to file extension strings used by src.rag.chunking
+_FILE_TYPE_TO_EXT = {
+    FileType.JAVA: "java",
+    FileType.JS: "js",
+    FileType.HTML: "html",
+    FileType.MARKDOWN: "md",
+    FileType.PYTHON: "py",
+    FileType.SQL: "sql",
+    FileType.DDL: "ddl",
 }
 
 class BaseFileConverter(ABC):
@@ -36,28 +35,14 @@ class BaseFileConverter(ABC):
     @staticmethod
     def get_text_splitter(file_type) -> TextSplitter:
         """
-        Returns (TextSplitter) for the specified language.
+        Returns the config-driven, tokenizer-aware TextSplitter for the given file type.
 
-        Parameters:
-        - file_type (FileType): The file type enum indicating which (TextSplitter) to use
-
-        Returns:
-        - (TextSplitter)
-
-        See: https://api.python.langchain.com/en/latest/text_splitter/langchain.text_splitter.Language.html
+        Delegates to src.rag.chunking.get_text_splitter() so that all ingestion
+        paths (FastAPI /ingest and legacy CLI) use the same chunking strategy.
         """
-        language = file_type_per_language.get(file_type)
-        if language is not None:
-            text_separators = RecursiveCharacterTextSplitter.get_separators_for_language(language)
-        else:    
-            text_separators = None
-
-        return RecursiveCharacterTextSplitter(
-            separators = text_separators,
-            chunk_size=CHUNK_SIZE, 
-            chunk_overlap=CHUNK_OVERLAP,
-            keep_separator=True
-        )    
+        from src.rag.chunking import get_text_splitter
+        ext = _FILE_TYPE_TO_EXT.get(file_type)
+        return get_text_splitter(ext)    
    
     def get_language(self) -> Language:
         """

@@ -29,7 +29,7 @@ class PdfConverter(BaseFileConverter):
         - (List[Document]): the list of unstructured PDF content
         """
         loader = PyPDFLoader(file_path)
-        return loader.load_and_split()
+        return loader.load_and_split(text_splitter=text_splitter)
 
     def load_and_split_files(self, dir_path: str, file_pattern: str) -> List[Document]:
         """
@@ -43,12 +43,12 @@ class PdfConverter(BaseFileConverter):
         - (List[Document]): the list of unstructured content
         """
         files = glob.glob(f'{dir_path}{file_pattern}.pdf', recursive=True)
-        split_docs = []
+        loaded_docs = []
         for file_path in files:
-            document = self.load_and_split_file(text_splitter=None, file_path=file_path)
-            self.log_info(f"PDF splits: {len(document)}") 
-            split_docs.extend(document)
-        
-        return split_docs
+            pages = PyPDFLoader(file_path).load()
+            self.log_info(f"PDF pages loaded: {len(pages)}")
+            loaded_docs.extend(pages)
+
+        return loaded_docs
 
         

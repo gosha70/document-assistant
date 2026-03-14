@@ -11,8 +11,9 @@ class TestSettingsFromYaml:
         s = get_settings()
         assert s.app.name == "Document Assistant (D.O.T.)"
         assert s.embedding.model_name == "hkunlp/instructor-large"
-        assert s.chunking.chunk_size == 1000
-        assert s.chunking.chunk_overlap == 200
+        assert s.chunking.chunk_size == 512
+        assert s.chunking.chunk_overlap == 50
+        assert s.chunking.tokenizer == "tiktoken:cl100k_base"
         assert s.vectorstore.backend == "chroma"
         assert s.vectorstore.collection_name == "EGOGE_DOCUMENTS_DB"
         assert s.model.n_ctx == 6144
@@ -22,12 +23,12 @@ class TestSettingsFromYaml:
 
     def test_override_file_merges(self):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            f.write("app:\n  port: 9999\nchunking:\n  chunk_size: 512\n")
+            f.write("app:\n  port: 9999\nchunking:\n  chunk_size: 256\n")
             f.flush()
             try:
                 s = get_settings(override_path=f.name)
                 assert s.app.port == 9999
-                assert s.chunking.chunk_size == 512
+                assert s.chunking.chunk_size == 256
                 # Other values still from defaults
                 assert s.embedding.model_name == "hkunlp/instructor-large"
             finally:
