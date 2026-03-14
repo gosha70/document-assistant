@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+.git/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+model_cache/
+notebooks/
+eval/
+tests/
+specs/
+doc_internal/
+.env
+*.log

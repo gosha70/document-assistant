@@ -20,6 +20,7 @@ def _create_test_app():
     from src.api.main import create_app as _real_create
     from fastapi.middleware.cors import CORSMiddleware
     from src.api.middleware.auth import AuthMiddleware
+    from src.api.middleware.ratelimit import RateLimitMiddleware
     from src.api.middleware.telemetry import TelemetryMiddleware
     from src.api.routes import chat, ingest, status, admin
     from src.config.settings import get_settings
@@ -28,6 +29,7 @@ def _create_test_app():
     app = FastAPI(title=settings.app.name, lifespan=noop_lifespan)
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
     app.add_middleware(AuthMiddleware)
+    app.add_middleware(RateLimitMiddleware)
     app.add_middleware(TelemetryMiddleware)
     app.include_router(chat.router)
     app.include_router(ingest.router)

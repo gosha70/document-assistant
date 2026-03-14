@@ -1,4 +1,18 @@
 services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DOT_CONFIG_PATH: /app/config/defaults.yaml
+    volumes:
+      - ./config:/app/config:ro
+      - model_cache:/app/model_cache/
+    depends_on:
+      qdrant:
+        condition: service_started
+    restart: unless-stopped
+
   qdrant:
     image: qdrant/qdrant:v1.13.2
     ports:
@@ -8,6 +22,8 @@ services:
       - qdrant_data:/qdrant/storage
     environment:
       QDRANT__SERVICE__GRPC_PORT: 6334
+    restart: unless-stopped
 
 volumes:
   qdrant_data:
+  model_cache:

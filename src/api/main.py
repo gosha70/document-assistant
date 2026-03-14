@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.config.settings import get_settings
 from src.api.middleware.auth import AuthMiddleware
+from src.api.middleware.ratelimit import RateLimitMiddleware
 from src.api.middleware.telemetry import TelemetryMiddleware
 from src.api.routes import chat, ingest, status, admin
 
@@ -176,6 +177,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(AuthMiddleware)
+    app.add_middleware(RateLimitMiddleware)
     app.add_middleware(TelemetryMiddleware)
 
     app.include_router(chat.router)

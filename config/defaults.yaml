@@ -74,6 +74,11 @@ auth:
   admin_token: null
   user_token: null
 
+rate_limit:
+  enabled: false
+  max_requests: 60
+  window_seconds: 60
+
 telemetry:
   enabled: true
   log_llm_calls: true

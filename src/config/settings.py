@@ -88,6 +88,12 @@ class AuthSettings(BaseModel):
     user_token: Optional[str]
 
 
+class RateLimitSettings(BaseModel):
+    enabled: bool
+    max_requests: int
+    window_seconds: int
+
+
 class TelemetrySettings(BaseModel):
     enabled: bool
     log_llm_calls: bool
@@ -110,6 +116,7 @@ class Settings(BaseModel):
     vectorstore: VectorStoreSettings
     upload: UploadSettings
     auth: AuthSettings
+    rate_limit: RateLimitSettings
     telemetry: TelemetrySettings
     system_prompt: str
 
