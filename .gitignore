@@ -13,3 +13,4 @@ dist/
 .ruff_cache/
 /chroma
 /doc_internal
+config/local.yaml
