@@ -72,6 +72,7 @@ upload:
 auth:
   enabled: false
   admin_token: null
+  user_token: null
 
 telemetry:
   enabled: true

@@ -85,6 +85,7 @@ class UploadSettings(BaseModel):
 class AuthSettings(BaseModel):
     enabled: bool
     admin_token: Optional[str]
+    user_token: Optional[str]
 
 
 class TelemetrySettings(BaseModel):

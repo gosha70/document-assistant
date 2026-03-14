@@ -325,17 +325,21 @@ class TestLLMFactory:
 
 
 class TestAuthMiddleware:
+    def _make_auth_settings(self, admin_token="admin-secret", user_token="user-secret"):
+        s = MagicMock()
+        s.auth.enabled = True
+        s.auth.admin_token = admin_token
+        s.auth.user_token = user_token
+        return s
+
     def test_admin_blocked_when_auth_enabled(self):
         app = _create_test_app()
-        mock_backend = MagicMock(spec=VectorStoreBackend)
-        mock_backend.list_collections.return_value = []
-        deps._backend = mock_backend
+        mock_be = MagicMock(spec=VectorStoreBackend)
+        mock_be.list_collections.return_value = []
+        deps._backend = mock_be
 
         with patch("src.api.middleware.auth.get_settings") as mock_settings:
-            s = MagicMock()
-            s.auth.enabled = True
-            s.auth.admin_token = "secret-token"
-            mock_settings.return_value = s
+            mock_settings.return_value = self._make_auth_settings()
 
             with TestClient(app, raise_server_exceptions=False) as c:
                 # No token
@@ -346,9 +350,86 @@ class TestAuthMiddleware:
                 resp = c.get("/admin/collections", headers={"Authorization": "Bearer wrong"})
                 assert resp.status_code == 403
 
-                # Correct token
-                resp = c.get("/admin/collections", headers={"Authorization": "Bearer secret-token"})
+                # User token cannot access admin
+                resp = c.get("/admin/collections", headers={"Authorization": "Bearer user-secret"})
+                assert resp.status_code == 403
+
+                # Admin token works
+                resp = c.get("/admin/collections", headers={"Authorization": "Bearer admin-secret"})
                 assert resp.status_code == 200
+
+        deps._backend = None
+        deps._reranker = None
+
+    def test_chat_requires_user_token(self):
+        app = _create_test_app()
+        mock_be = MagicMock(spec=VectorStoreBackend)
+        mock_be.hybrid_search.return_value = []
+        deps._backend = mock_be
+        deps._llm = MagicMock()
+
+        with patch("src.api.middleware.auth.get_settings") as mock_settings:
+            mock_settings.return_value = self._make_auth_settings()
+
+            with TestClient(app, raise_server_exceptions=False) as c:
+                # No token
+                resp = c.post("/chat", json={"question": "test?"})
+                assert resp.status_code == 403
+
+                # User token works
+                resp = c.post("/chat", json={"question": "test?"}, headers={"Authorization": "Bearer user-secret"})
+                assert resp.status_code == 200
+
+                # Admin token also works for user routes
+                resp = c.post("/chat", json={"question": "test?"}, headers={"Authorization": "Bearer admin-secret"})
+                assert resp.status_code == 200
+
+        deps._backend = None
+        deps._llm = None
+        deps._reranker = None
+
+    def test_public_routes_always_open(self):
+        app = _create_test_app()
+        mock_be = MagicMock(spec=VectorStoreBackend)
+        mock_be.count.return_value = 0
+        mock_be.get_embedding_provenance.return_value = None
+        deps._backend = mock_be
+
+        with patch("src.api.middleware.auth.get_settings") as mock_settings:
+            mock_settings.return_value = self._make_auth_settings()
+
+            with TestClient(app, raise_server_exceptions=False) as c:
+                # Health is public
+                resp = c.get("/health")
+                assert resp.status_code == 200
+
+                # Status is public
+                with patch("src.api.routes.status.get_settings") as mock_status_settings:
+                    mock_status_settings.return_value = self._make_auth_settings()
+                    mock_status_settings.return_value.vectorstore.collection_name = "test"
+                    mock_status_settings.return_value.app.name = "Test"
+                    mock_status_settings.return_value.vectorstore.backend = "chroma"
+                    resp = c.get("/status")
+                    assert resp.status_code == 200
+
+        deps._backend = None
+        deps._reranker = None
+
+    def test_options_preflight_passes_without_token(self):
+        app = _create_test_app()
+        mock_be = MagicMock(spec=VectorStoreBackend)
+        deps._backend = mock_be
+
+        with patch("src.api.middleware.auth.get_settings") as mock_settings:
+            mock_settings.return_value = self._make_auth_settings()
+
+            with TestClient(app, raise_server_exceptions=False) as c:
+                # OPTIONS on protected routes should not return 403
+                resp = c.options("/chat")
+                assert resp.status_code != 403
+
+                resp = c.options("/admin/collections")
+                assert resp.status_code != 403
 
         deps._backend = None
         deps._reranker = None
