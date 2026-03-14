@@ -43,3 +43,11 @@ class VectorStoreBackend(ABC):
     @abstractmethod
     def count(self, collection_name: str) -> int:
         """Return number of documents in a collection."""
+
+    def get_embedding_provenance(self, collection_name: str) -> Optional[dict]:
+        """Return the embedding model/type that was used to build a collection.
+
+        Returns a dict with 'model_name' and 'type' keys, or None if provenance
+        is unknown (e.g. collections created before provenance tracking).
+        """
+        return None

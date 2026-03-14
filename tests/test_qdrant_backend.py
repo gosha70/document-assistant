@@ -23,12 +23,16 @@ def _make_collection_info(vector_size=4, points_count=0):
     return info
 
 
-def _make_backend(mock_client, embedding=None):
+def _make_backend(mock_client, embedding=None, allow_legacy_collections=True):
     """Create a QdrantBackend with a pre-injected mock client."""
     emb = embedding or _make_embedding_mock()
     with patch("qdrant_client.QdrantClient", return_value=mock_client):
         from src.rag.qdrant_backend import QdrantBackend
-        backend = QdrantBackend(embedding=emb, url="http://localhost:6333")
+        backend = QdrantBackend(
+            embedding=emb,
+            url="http://localhost:6333",
+            allow_legacy_collections=allow_legacy_collections,
+        )
     return backend
 
 
@@ -49,25 +53,29 @@ class TestStore:
         ids = backend.store(docs, "test_col")
 
         mock_client.create_collection.assert_called_once()
-        mock_client.upsert.assert_called_once()
+        # upsert called twice: once for provenance sentinel, once for documents
+        assert mock_client.upsert.call_count == 2
         assert len(ids) == 1
 
     def test_store_validates_dimension_if_exists(self):
         mock_client = MagicMock()
         mock_client.collection_exists.return_value = True
         mock_client.get_collection.return_value = _make_collection_info(vector_size=4)
+        mock_client.retrieve.return_value = []  # no provenance sentinel
         backend = _make_backend(mock_client)
 
         docs = [Document(page_content="test", metadata={})]
         backend.store(docs, "existing_col")
 
         mock_client.create_collection.assert_not_called()
-        mock_client.upsert.assert_called_once()
+        # upsert called twice: once for provenance sentinel, once for documents
+        assert mock_client.upsert.call_count == 2
 
     def test_store_rejects_dimension_mismatch(self):
         mock_client = MagicMock()
         mock_client.collection_exists.return_value = True
         mock_client.get_collection.return_value = _make_collection_info(vector_size=768)
+        mock_client.retrieve.return_value = []
         backend = _make_backend(mock_client, embedding=_make_embedding_mock(dim=4))
 
         docs = [Document(page_content="test", metadata={})]
@@ -80,6 +88,7 @@ class TestSearch:
         mock_client = MagicMock()
         mock_client.collection_exists.return_value = True
         mock_client.get_collection.return_value = _make_collection_info(vector_size=4)
+        mock_client.retrieve.return_value = []
 
         mock_point = MagicMock()
         mock_point.payload = {"page_content": "found it", "metadata": {"source": "b.txt"}}
@@ -110,6 +119,7 @@ class TestSearch:
         mock_client = MagicMock()
         mock_client.collection_exists.return_value = True
         mock_client.get_collection.return_value = _make_collection_info(vector_size=768)
+        mock_client.retrieve.return_value = []
         backend = _make_backend(mock_client, embedding=_make_embedding_mock(dim=4))
 
         with pytest.raises(ValueError, match="vector size 768"):
@@ -119,6 +129,7 @@ class TestSearch:
         mock_client = MagicMock()
         mock_client.collection_exists.return_value = True
         mock_client.get_collection.return_value = _make_collection_info(vector_size=4)
+        mock_client.retrieve.return_value = []
         mock_result = MagicMock()
         mock_result.points = []
         mock_client.query_points.return_value = mock_result
@@ -134,6 +145,7 @@ class TestSearch:
         mock_client = MagicMock()
         mock_client.collection_exists.return_value = True
         mock_client.get_collection.return_value = _make_collection_info(vector_size=4)
+        mock_client.retrieve.return_value = []
 
         mock_result = MagicMock()
         mock_result.points = []
@@ -170,6 +182,7 @@ class TestCollectionInfo:
         mock_client = MagicMock()
         mock_client.collection_exists.return_value = True
         mock_client.get_collection.return_value = _make_collection_info(points_count=42)
+        mock_client.retrieve.return_value = []
 
         backend = _make_backend(mock_client)
         info = backend.get_collection_info("test_col")
@@ -177,7 +190,21 @@ class TestCollectionInfo:
         assert info["name"] == "test_col"
         assert info["backend"] == "qdrant"
         assert info["document_count"] == 42
-        assert info["embedding_model"] == "test-model"
+        assert info["embedding_model"] == "unknown"
+
+    def test_get_collection_info_with_provenance(self):
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = True
+        mock_client.get_collection.return_value = _make_collection_info(points_count=11)
+        prov_point = MagicMock()
+        prov_point.payload = {"embedding_model_name": "my-model", "embedding_type": "instructor"}
+        mock_client.retrieve.return_value = [prov_point]
+
+        backend = _make_backend(mock_client)
+        info = backend.get_collection_info("test_col")
+
+        assert info["embedding_model"] == "my-model"
+        assert info["document_count"] == 10  # sentinel subtracted
 
     def test_get_collection_info_not_found(self):
         mock_client = MagicMock()
@@ -197,6 +224,7 @@ class TestListCollections:
         mock_collections.collections = [mock_col]
         mock_client.get_collections.return_value = mock_collections
         mock_client.get_collection.return_value = _make_collection_info(points_count=10)
+        mock_client.retrieve.return_value = []
 
         backend = _make_backend(mock_client)
         cols = backend.list_collections()
@@ -212,6 +240,7 @@ class TestCount:
         mock_client = MagicMock()
         mock_client.collection_exists.return_value = True
         mock_client.get_collection.return_value = _make_collection_info(points_count=7)
+        mock_client.retrieve.return_value = []  # no provenance sentinel
 
         backend = _make_backend(mock_client)
         assert backend.count("test_col") == 7
@@ -224,6 +253,134 @@ class TestCount:
         assert backend.count("nope") == 0
 
 
+class TestProvenance:
+    def test_search_filters_out_provenance_sentinel(self):
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = True
+        mock_client.get_collection.return_value = _make_collection_info(vector_size=4)
+        mock_client.retrieve.return_value = []
+
+        sentinel = MagicMock()
+        sentinel.payload = {"_provenance": True, "embedding_model_name": "test-model"}
+        real_point = MagicMock()
+        real_point.payload = {"page_content": "real doc", "metadata": {"source": "c.txt"}}
+        mock_result = MagicMock()
+        mock_result.points = [sentinel, real_point]
+        mock_client.query_points.return_value = mock_result
+
+        backend = _make_backend(mock_client)
+        results = backend.search("query", "test_col")
+
+        assert len(results) == 1
+        assert results[0].page_content == "real doc"
+
+    def test_validate_rejects_model_mismatch(self):
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = True
+        mock_client.get_collection.return_value = _make_collection_info(vector_size=4)
+        # Provenance says collection was built with a different model
+        prov_point = MagicMock()
+        prov_point.payload = {
+            "embedding_model_name": "other-model",
+            "embedding_type": "instructor",
+        }
+        mock_client.retrieve.return_value = [prov_point]
+
+        backend = _make_backend(mock_client)
+        with pytest.raises(ValueError, match="other-model"):
+            backend.search("query", "test_col")
+
+    def test_validate_rejects_type_mismatch(self):
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = True
+        mock_client.get_collection.return_value = _make_collection_info(vector_size=4)
+        # Same model name, different type
+        prov_point = MagicMock()
+        prov_point.payload = {
+            "embedding_model_name": "test-model",
+            "embedding_type": "instructor",
+        }
+        mock_client.retrieve.return_value = [prov_point]
+
+        emb = _make_embedding_mock()
+        with patch("qdrant_client.QdrantClient", return_value=mock_client):
+            from src.rag.qdrant_backend import QdrantBackend
+            backend = QdrantBackend(
+                embedding=emb,
+                url="http://localhost:6333",
+                embedding_type="huggingface",
+            )
+        with pytest.raises(ValueError, match="embedding type 'instructor'"):
+            backend.search("query", "test_col")
+
+    def test_get_embedding_provenance_returns_stored(self):
+        mock_client = MagicMock()
+        prov_point = MagicMock()
+        prov_point.payload = {
+            "embedding_model_name": "my-model",
+            "embedding_type": "huggingface",
+        }
+        mock_client.retrieve.return_value = [prov_point]
+
+        backend = _make_backend(mock_client)
+        prov = backend.get_embedding_provenance("test_col")
+
+        assert prov == {"model_name": "my-model", "type": "huggingface"}
+
+    def test_get_embedding_provenance_returns_none_when_empty(self):
+        mock_client = MagicMock()
+        mock_client.retrieve.return_value = []
+
+        backend = _make_backend(mock_client)
+        assert backend.get_embedding_provenance("test_col") is None
+
+    def test_validate_rejects_missing_provenance_by_default(self):
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = True
+        mock_client.get_collection.return_value = _make_collection_info(vector_size=4)
+        mock_client.retrieve.return_value = []  # no provenance
+
+        backend = _make_backend(mock_client, allow_legacy_collections=False)
+        with pytest.raises(ValueError, match="no embedding provenance"):
+            backend.search("query", "legacy_col")
+
+    def test_validate_allows_missing_provenance_when_legacy_enabled(self):
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = True
+        mock_client.get_collection.return_value = _make_collection_info(vector_size=4)
+        mock_client.retrieve.return_value = []
+        mock_result = MagicMock()
+        mock_result.points = []
+        mock_client.query_points.return_value = mock_result
+
+        backend = _make_backend(mock_client, allow_legacy_collections=True)
+        results = backend.search("query", "legacy_col")
+        assert results == []
+
+    def test_document_count_subtracts_sentinel(self):
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = True
+        mock_client.get_collection.return_value = _make_collection_info(points_count=11)
+        prov_point = MagicMock()
+        prov_point.payload = {
+            "embedding_model_name": "test-model",
+            "embedding_type": "instructor",
+        }
+        mock_client.retrieve.return_value = [prov_point]
+
+        backend = _make_backend(mock_client)
+        assert backend.count("test_col") == 10
+
+    def test_document_count_no_sentinel_no_subtraction(self):
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = True
+        mock_client.get_collection.return_value = _make_collection_info(points_count=5)
+        mock_client.retrieve.return_value = []
+
+        backend = _make_backend(mock_client, allow_legacy_collections=True)
+        assert backend.count("test_col") == 5
+
+
 class TestBackendFactory:
     def test_qdrant_backend_wired_in_factory(self):
         from src.api.main import _create_backend
@@ -232,6 +389,7 @@ class TestBackendFactory:
         settings.vectorstore.qdrant_url = "http://localhost:6333"
         settings.vectorstore.qdrant_api_key = None
         settings.vectorstore.qdrant_prefer_grpc = False
+        settings.embedding.type = "instructor"
         settings.embedding.model_name = "test-model"
         settings.embedding.device = "cpu"
         settings.embedding.normalize_embeddings = True
@@ -250,6 +408,8 @@ class TestBackendFactory:
         from src.api.main import _create_backend
         settings = MagicMock()
         settings.vectorstore.backend = "unknown_db"
+        settings.embedding.type = "instructor"
 
-        with pytest.raises(ValueError, match="qdrant"):
-            _create_backend(settings)
+        with patch("src.rag.embeddings.InstructorEmbeddingAdapter"):
+            with pytest.raises(ValueError, match="qdrant"):
+                _create_backend(settings)

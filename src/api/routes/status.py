@@ -21,10 +21,13 @@ def get_status():
     except Exception:
         doc_count = 0
 
+    provenance = backend.get_embedding_provenance(settings.vectorstore.collection_name)
+    embedding_model = provenance["model_name"] if provenance else "unknown"
+
     return StatusResponse(
         app_name=settings.app.name,
         document_count=doc_count,
         collection_name=settings.vectorstore.collection_name,
-        embedding_model=settings.embedding.model_name,
+        embedding_model=embedding_model,
         vectorstore_backend=settings.vectorstore.backend,
     )

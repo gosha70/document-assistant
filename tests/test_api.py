@@ -53,6 +53,7 @@ def mock_backend():
     }
     backend.search.return_value = []
     backend.hybrid_search.return_value = []
+    backend.get_embedding_provenance.return_value = None
     return backend
 
 
@@ -61,10 +62,12 @@ def client(mock_backend):
     app = _create_test_app()
     deps._backend = mock_backend
     deps._llm = None
+    deps._reranker = None
     with TestClient(app) as c:
         yield c
     deps._backend = None
     deps._llm = None
+    deps._reranker = None
 
 
 class TestHealthEndpoint:
@@ -190,8 +193,10 @@ class TestBackendFactory:
 
         settings = MagicMock()
         settings.vectorstore.backend = "unknown_db"
-        with pytest.raises(ValueError, match="Unknown vectorstore backend"):
-            _create_backend(settings)
+        settings.embedding.type = "instructor"
+        with patch("src.rag.embeddings.InstructorEmbeddingAdapter"):
+            with pytest.raises(ValueError, match="Unknown vectorstore backend"):
+                _create_backend(settings)
 
 
 class TestAuthMiddleware:
@@ -221,3 +226,4 @@ class TestAuthMiddleware:
                 assert resp.status_code == 200
 
         deps._backend = None
+        deps._reranker = None

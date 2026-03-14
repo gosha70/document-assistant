@@ -9,13 +9,14 @@ from typing import Any, Optional
 from src.config.settings import get_settings
 from src.rag.vectorstore import VectorStoreBackend
 from src.rag.retrieval import Retriever
-from src.rag.reranking import NoOpReranker
+from src.rag.reranking import Reranker, NoOpReranker
 from src.rag.generation import Generator
 
 logger = logging.getLogger(__name__)
 
 _backend: Optional[VectorStoreBackend] = None
 _llm: Any = None
+_reranker: Optional[Reranker] = None
 
 
 def set_vectorstore_backend(backend: VectorStoreBackend) -> None:
@@ -36,13 +37,21 @@ def set_llm(llm: Any) -> None:
     _llm = llm
 
 
+def set_reranker(reranker: Optional[Reranker]) -> None:
+    """Set the reranker instance (called during app startup). None means disabled."""
+    global _reranker
+    _reranker = reranker
+
+
 def get_retriever(collection_name: Optional[str] = None) -> Retriever:
     settings = get_settings()
     collection = collection_name or settings.vectorstore.collection_name
+    reranker = _reranker or NoOpReranker()
     return Retriever(
         backend=get_vectorstore_backend(),
         collection_name=collection,
-        reranker=NoOpReranker(),
+        reranker=reranker,
+        final_k=settings.reranker.top_k,
     )
 
 

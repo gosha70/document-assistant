@@ -173,7 +173,7 @@ class TestCrossVersionPersistence:
         lc_emb.embed_query.return_value = [0.5] * 384
         mock_emb.get_langchain_embeddings.return_value = lc_emb
 
-        backend = ChromaBackend(embedding=mock_emb, persist_directory=tmp_dir)
+        backend = ChromaBackend(embedding=mock_emb, persist_directory=tmp_dir, allow_legacy_collections=True)
         results = backend.search("LLM framework", collection_name="search_legacy", k=1)
 
         assert len(results) == 1
@@ -230,7 +230,28 @@ class TestLegacyChroma05Migration:
         lc_emb.embed_query.return_value = [0.1] * 384
         mock_emb.get_langchain_embeddings.return_value = lc_emb
 
-        backend = ChromaBackend(embedding=mock_emb, persist_directory=legacy_dir)
+        backend = ChromaBackend(embedding=mock_emb, persist_directory=legacy_dir, allow_legacy_collections=True)
         results = backend.search("programming", collection_name="legacy_test_col", k=1)
         assert len(results) == 1
         assert isinstance(results[0], Document)
+
+    def test_legacy_store_search_blocked_without_legacy_flag(self, legacy_dir):
+        mock_emb = MagicMock()
+        mock_emb.model_name = "test"
+        lc_emb = MagicMock()
+        lc_emb.embed_query.return_value = [0.1] * 384
+        mock_emb.get_langchain_embeddings.return_value = lc_emb
+
+        backend = ChromaBackend(embedding=mock_emb, persist_directory=legacy_dir)
+        with pytest.raises(ValueError, match="no embedding provenance"):
+            backend.search("programming", collection_name="legacy_test_col", k=1)
+
+    def test_legacy_store_blocked_on_write_without_legacy_flag(self, legacy_dir):
+        mock_emb = MagicMock()
+        mock_emb.model_name = "test"
+        mock_emb.get_langchain_embeddings.return_value = MagicMock()
+
+        backend = ChromaBackend(embedding=mock_emb, persist_directory=legacy_dir)
+        docs = [Document(page_content="new doc", metadata={"source": "x.txt"})]
+        with pytest.raises(ValueError, match="no embedding provenance"):
+            backend.store(docs, collection_name="legacy_test_col")

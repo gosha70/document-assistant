@@ -28,8 +28,15 @@ def _deep_merge(base: dict, override: dict) -> dict:
 
 class EmbeddingSettings(BaseModel):
     model_name: str
+    type: str
     device: str
     normalize_embeddings: bool
+
+
+class RerankerSettings(BaseModel):
+    enabled: bool
+    model_name: str
+    top_k: int
 
 
 class ChunkingSettings(BaseModel):
@@ -58,6 +65,7 @@ class VectorStoreSettings(BaseModel):
     qdrant_url: str
     qdrant_api_key: Optional[str]
     qdrant_prefer_grpc: bool
+    allow_legacy_collections: bool
 
 
 class UploadSettings(BaseModel):
@@ -85,6 +93,7 @@ class AppSettings(BaseModel):
 class Settings(BaseModel):
     app: AppSettings
     embedding: EmbeddingSettings
+    reranker: RerankerSettings
     chunking: ChunkingSettings
     model: ModelSettings
     vectorstore: VectorStoreSettings

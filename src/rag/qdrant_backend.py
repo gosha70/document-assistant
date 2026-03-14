@@ -9,6 +9,9 @@ from src.rag.embeddings import EmbeddingAdapter
 
 logger = logging.getLogger(__name__)
 
+_PROVENANCE_KEY_MODEL = "embedding_model_name"
+_PROVENANCE_KEY_TYPE = "embedding_type"
+
 
 class QdrantBackend(VectorStoreBackend):
     """Qdrant-backed implementation of VectorStoreBackend (dense retrieval only)."""
@@ -19,10 +22,14 @@ class QdrantBackend(VectorStoreBackend):
         url: str = "http://localhost:6333",
         api_key: Optional[str] = None,
         prefer_grpc: bool = False,
+        embedding_type: str = "instructor",
+        allow_legacy_collections: bool = False,
     ):
         from qdrant_client import QdrantClient
 
         self._embedding = embedding
+        self._embedding_type = embedding_type
+        self._allow_legacy_collections = allow_legacy_collections
         self._url = url
         self._client = QdrantClient(url=url, api_key=api_key, prefer_grpc=prefer_grpc)
         self._vector_size: Optional[int] = None
@@ -35,13 +42,16 @@ class QdrantBackend(VectorStoreBackend):
         return self._vector_size
 
     def _validate_collection(self, collection_name: str) -> None:
-        """Validate that an existing collection's vector size matches the embedding model.
+        """Validate dimension and embedding provenance against existing collection.
 
-        Results are cached per collection so the check runs at most once per collection.
+        Results are cached per collection so checks run at most once.
         """
         if collection_name in self._validated_collections:
             return
+
         info = self._client.get_collection(collection_name)
+
+        # Dimension check
         existing_size = info.config.params.vectors.size
         expected_size = self._get_vector_size()
         if existing_size != expected_size:
@@ -50,10 +60,43 @@ class QdrantBackend(VectorStoreBackend):
                 f"but the configured embedding model produces {expected_size}-dimensional vectors. "
                 f"Reindex the collection or change the embedding model."
             )
+
+        # Provenance check
+        provenance = self.get_embedding_provenance(collection_name)
+        if provenance is None:
+            if self._allow_legacy_collections:
+                logger.warning(
+                    f"Collection '{collection_name}' has no embedding provenance metadata. "
+                    f"Cannot verify compatibility with configured embedding '{self._embedding.model_name}'. "
+                    f"Allowing access because allow_legacy_collections is enabled."
+                )
+            else:
+                raise ValueError(
+                    f"Collection '{collection_name}' has no embedding provenance metadata. "
+                    f"Cannot verify compatibility with configured embedding '{self._embedding.model_name}'. "
+                    f"Reindex the collection to add provenance, or set "
+                    f"vectorstore.allow_legacy_collections=true to bypass this check."
+                )
+        else:
+            stored_model = provenance.get("model_name")
+            stored_type = provenance.get("type")
+            if stored_model and stored_model != self._embedding.model_name:
+                raise ValueError(
+                    f"Collection '{collection_name}' was built with embedding model '{stored_model}' "
+                    f"(type: {stored_type}), but the configured model is '{self._embedding.model_name}' "
+                    f"(type: {self._embedding_type}). Reindex the collection or restore the original config."
+                )
+            if stored_type and stored_type != self._embedding_type:
+                raise ValueError(
+                    f"Collection '{collection_name}' was built with embedding type '{stored_type}', "
+                    f"but the configured type is '{self._embedding_type}'. "
+                    f"Reindex the collection or restore the original config."
+                )
+
         self._validated_collections.add(collection_name)
 
     def _ensure_collection_for_write(self, collection_name: str) -> None:
-        """Create collection if missing; validate dimension if it exists."""
+        """Create collection if missing; validate if it exists."""
         from qdrant_client.models import Distance, VectorParams
 
         if self._client.collection_exists(collection_name):
@@ -68,10 +111,31 @@ class QdrantBackend(VectorStoreBackend):
             )
             logger.info(f"Created Qdrant collection '{collection_name}'")
 
+    def _set_provenance(self, collection_name: str) -> None:
+        """Store embedding provenance as a sentinel point in the collection."""
+        try:
+            from qdrant_client.models import PointStruct
+            provenance_id = "00000000-0000-0000-0000-000000000000"
+            self._client.upsert(
+                collection_name=collection_name,
+                points=[PointStruct(
+                    id=provenance_id,
+                    vector=[0.0] * self._get_vector_size(),
+                    payload={
+                        "_provenance": True,
+                        _PROVENANCE_KEY_MODEL: self._embedding.model_name,
+                        _PROVENANCE_KEY_TYPE: self._embedding_type,
+                    },
+                )],
+            )
+        except Exception as e:
+            logger.warning(f"Failed to set embedding provenance on '{collection_name}': {e}")
+
     def store(self, documents: list[Document], collection_name: str) -> list[str]:
         from qdrant_client.models import PointStruct
 
         self._ensure_collection_for_write(collection_name)
+        self._set_provenance(collection_name)
         texts = [doc.page_content for doc in documents]
         vectors = self._embedding.embed_documents(texts)
         ids = [str(uuid.uuid4()) for _ in documents]
@@ -114,6 +178,8 @@ class QdrantBackend(VectorStoreBackend):
         documents = []
         for point in results.points:
             payload = point.payload or {}
+            if payload.get("_provenance"):
+                continue
             documents.append(
                 Document(
                     page_content=payload.get("page_content", ""),
@@ -140,29 +206,41 @@ class QdrantBackend(VectorStoreBackend):
         )
         logger.info(f"Deleted {len(ids)} documents from Qdrant collection '{collection_name}'")
 
+    def _document_count(self, collection_name: str, raw_points_count: int) -> int:
+        """Return document count, subtracting the provenance sentinel if present."""
+        provenance = self.get_embedding_provenance(collection_name)
+        if provenance is not None and raw_points_count > 0:
+            return raw_points_count - 1
+        return raw_points_count
+
     def get_collection_info(self, collection_name: str) -> dict:
         if not self._client.collection_exists(collection_name):
             raise ValueError(f"Collection '{collection_name}' not found")
 
         info = self._client.get_collection(collection_name)
+        provenance = self.get_embedding_provenance(collection_name)
+        embedding_model = provenance["model_name"] if provenance else "unknown"
+
         return {
             "name": collection_name,
             "backend": "qdrant",
-            "document_count": info.points_count,
+            "document_count": self._document_count(collection_name, info.points_count),
             "persist_directory": None,
-            "embedding_model": self._embedding.model_name,
+            "embedding_model": embedding_model,
         }
 
     def list_collections(self) -> list[dict]:
         results = []
         for collection in self._client.get_collections().collections:
             info = self._client.get_collection(collection.name)
+            provenance = self.get_embedding_provenance(collection.name)
+            embedding_model = provenance["model_name"] if provenance else "unknown"
             results.append({
                 "name": collection.name,
                 "backend": "qdrant",
-                "document_count": info.points_count,
+                "document_count": self._document_count(collection.name, info.points_count),
                 "persist_directory": None,
-                "embedding_model": self._embedding.model_name,
+                "embedding_model": embedding_model,
             })
         return results
 
@@ -170,4 +248,25 @@ class QdrantBackend(VectorStoreBackend):
         if not self._client.collection_exists(collection_name):
             return 0
         info = self._client.get_collection(collection_name)
-        return info.points_count
+        return self._document_count(collection_name, info.points_count)
+
+    def get_embedding_provenance(self, collection_name: str) -> Optional[dict]:
+        """Return stored embedding provenance from sentinel point."""
+        try:
+            provenance_id = "00000000-0000-0000-0000-000000000000"
+            points = self._client.retrieve(
+                collection_name=collection_name,
+                ids=[provenance_id],
+                with_payload=True,
+            )
+            if points:
+                payload = points[0].payload or {}
+                model_name = payload.get(_PROVENANCE_KEY_MODEL)
+                if model_name:
+                    return {
+                        "model_name": model_name,
+                        "type": payload.get(_PROVENANCE_KEY_TYPE),
+                    }
+        except Exception:
+            pass
+        return None

@@ -6,8 +6,14 @@ app:
 
 embedding:
   model_name: "hkunlp/instructor-large"
+  type: "instructor"
   device: "cpu"
   normalize_embeddings: true
+
+reranker:
+  enabled: false
+  model_name: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+  top_k: 5
 
 chunking:
   chunk_size: 512
@@ -33,6 +39,7 @@ vectorstore:
   qdrant_url: "http://localhost:6333"
   qdrant_api_key: null
   qdrant_prefer_grpc: false
+  allow_legacy_collections: false
 
 upload:
   max_file_size_mb: 50

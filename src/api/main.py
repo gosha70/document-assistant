@@ -12,40 +12,61 @@ from src.api.routes import chat, ingest, status, admin
 logger = logging.getLogger(__name__)
 
 
+def _create_embedding(settings):
+    """Create the embedding adapter based on config."""
+    embedding_type = settings.embedding.type
+
+    if embedding_type == "instructor":
+        from src.rag.embeddings import InstructorEmbeddingAdapter
+        return InstructorEmbeddingAdapter(
+            model_name=settings.embedding.model_name,
+            device=settings.embedding.device,
+            normalize_embeddings=settings.embedding.normalize_embeddings,
+        )
+    elif embedding_type == "huggingface":
+        from src.rag.embeddings import HuggingFaceEmbeddingAdapter
+        return HuggingFaceEmbeddingAdapter(
+            model_name=settings.embedding.model_name,
+            device=settings.embedding.device,
+            normalize_embeddings=settings.embedding.normalize_embeddings,
+        )
+    else:
+        raise ValueError(f"Unknown embedding type: '{embedding_type}'. Supported: instructor, huggingface")
+
+
 def _create_backend(settings):
     """Create the vector store backend based on config."""
     backend_type = settings.vectorstore.backend
+    embedding = _create_embedding(settings)
 
     if backend_type == "chroma":
         from src.rag.chroma_backend import ChromaBackend
-        from src.rag.embeddings import InstructorEmbeddingAdapter
-
-        embedding = InstructorEmbeddingAdapter(
-            model_name=settings.embedding.model_name,
-            device=settings.embedding.device,
-            normalize_embeddings=settings.embedding.normalize_embeddings,
-        )
         return ChromaBackend(
             embedding=embedding,
             persist_directory=settings.vectorstore.persist_directory,
+            embedding_type=settings.embedding.type,
+            allow_legacy_collections=settings.vectorstore.allow_legacy_collections,
         )
     elif backend_type == "qdrant":
         from src.rag.qdrant_backend import QdrantBackend
-        from src.rag.embeddings import InstructorEmbeddingAdapter
-
-        embedding = InstructorEmbeddingAdapter(
-            model_name=settings.embedding.model_name,
-            device=settings.embedding.device,
-            normalize_embeddings=settings.embedding.normalize_embeddings,
-        )
         return QdrantBackend(
             embedding=embedding,
             url=settings.vectorstore.qdrant_url,
             api_key=settings.vectorstore.qdrant_api_key,
             prefer_grpc=settings.vectorstore.qdrant_prefer_grpc,
+            embedding_type=settings.embedding.type,
+            allow_legacy_collections=settings.vectorstore.allow_legacy_collections,
         )
     else:
         raise ValueError(f"Unknown vectorstore backend: '{backend_type}'. Supported: chroma, qdrant")
+
+
+def _create_reranker(settings):
+    """Create the reranker based on config. Returns None if disabled."""
+    if not settings.reranker.enabled:
+        return None
+    from src.rag.reranking import CrossEncoderReranker
+    return CrossEncoderReranker(model_name=settings.reranker.model_name)
 
 
 def _create_llm(settings):
@@ -67,12 +88,20 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     logger.info(f"Starting {settings.app.name}")
 
-    from src.api.deps import set_vectorstore_backend, set_llm
+    from src.api.deps import set_vectorstore_backend, set_llm, set_reranker
 
     # Initialise vector store backend (config-driven)
     backend = _create_backend(settings)
     set_vectorstore_backend(backend)
     logger.info(f"Vector store backend ready: {settings.vectorstore.backend}")
+
+    # Initialise reranker (config-driven)
+    reranker = _create_reranker(settings)
+    set_reranker(reranker)
+    if reranker:
+        logger.info(f"Reranker ready: {settings.reranker.model_name}")
+    else:
+        logger.info("Reranker disabled")
 
     # Initialise LLM
     try:
