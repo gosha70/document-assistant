@@ -59,10 +59,12 @@ def mock_backend():
 
 @pytest.fixture
 def client(mock_backend):
+    from src.utils.jobs import reset_jobs
     app = _create_test_app()
     deps._backend = mock_backend
     deps._llm = None
     deps._reranker = None
+    reset_jobs()
     with TestClient(app) as c:
         yield c
     deps._backend = None
@@ -176,20 +178,42 @@ class TestAdminEndpoints:
         assert resp.status_code == 200
         assert resp.json()["name"] == "test_col"
 
-    def test_reindex_stub(self, client):
+    def test_reindex_creates_job(self, client):
         resp = client.post("/admin/collections/test_col/reindex")
         assert resp.status_code == 200
-        assert resp.json()["status"] == "queued"
+        data = resp.json()
+        assert data["type"] == "reindex"
+        assert data["status"] in ("queued", "running", "completed")
+        assert data["collection_name"] == "test_col"
+        assert data["id"]
+        assert data["created_at"]
 
-    def test_export_stub(self, client):
+    def test_export_creates_job(self, client):
         resp = client.post("/admin/collections/test_col/export")
         assert resp.status_code == 200
-        assert resp.json()["type"] == "export"
+        data = resp.json()
+        assert data["type"] == "export"
+        assert data["collection_name"] == "test_col"
 
     def test_list_jobs_empty(self, client):
         resp = client.get("/admin/jobs")
         assert resp.status_code == 200
         assert resp.json() == []
+
+    def test_list_jobs_after_submit(self, client):
+        client.post("/admin/collections/test_col/reindex")
+        resp = client.get("/admin/jobs")
+        assert resp.status_code == 200
+        jobs = resp.json()
+        assert len(jobs) == 1
+        assert jobs[0]["type"] == "reindex"
+
+    def test_get_job_by_id(self, client):
+        create_resp = client.post("/admin/collections/test_col/reindex")
+        job_id = create_resp.json()["id"]
+        resp = client.get(f"/admin/jobs/{job_id}")
+        assert resp.status_code == 200
+        assert resp.json()["id"] == job_id
 
     def test_get_job_not_found(self, client):
         resp = client.get("/admin/jobs/nonexistent")

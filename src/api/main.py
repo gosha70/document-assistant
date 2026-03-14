@@ -154,6 +154,9 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    # Shutdown background job executor and reset singletons
+    from src.utils.jobs import reset_jobs
+    reset_jobs()
     logger.info("Shutting down")
 
 

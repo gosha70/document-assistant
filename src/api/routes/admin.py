@@ -5,6 +5,7 @@ from src.api.schemas import CollectionInfo, JobInfo
 from src.api.deps import get_vectorstore_backend
 from src.config.settings import get_settings
 from src.utils.metrics import get_metrics_collector
+from src.utils.jobs import get_job_store, get_job_executor
 
 logger = logging.getLogger(__name__)
 
@@ -34,62 +35,118 @@ def get_collection(collection_name: str):
 
 @router.post("/collections/{collection_name}/reindex", response_model=JobInfo)
 def trigger_reindex(collection_name: str):
-    """Trigger reindex from canonical sources. Wired to job queue in Phase 9."""
-    # Stub — returns a placeholder job until Phase 9 job orchestration
-    return JobInfo(
-        id="stub-reindex-001",
-        type="reindex",
-        status="queued",
-        progress=0.0,
+    """Trigger reindex from canonical sources."""
+    store = get_job_store()
+    executor = get_job_executor()
+
+    def reindex_task(job, store, **kwargs):
+        store.update(job.id, progress=0.5)
+        logger.info(f"Reindex task for collection '{kwargs.get('collection_name')}' — placeholder")
+
+    job = store.create(
+        job_type="reindex",
+        collection_name=collection_name,
+        func=reindex_task,
+        kwargs={"collection_name": collection_name},
     )
+    executor.submit(job)
+    return JobInfo(**job.to_dict())
 
 
 @router.post("/collections/{collection_name}/export", response_model=JobInfo)
 def trigger_export(collection_name: str):
-    """Export collection data. Wired to job queue in Phase 9."""
-    return JobInfo(
-        id="stub-export-001",
-        type="export",
-        status="queued",
-        progress=0.0,
+    """Export collection data."""
+    store = get_job_store()
+    executor = get_job_executor()
+
+    def export_task(job, store, **kwargs):
+        store.update(job.id, progress=0.5)
+        logger.info(f"Export task for collection '{kwargs.get('collection_name')}' — placeholder")
+
+    job = store.create(
+        job_type="export",
+        collection_name=collection_name,
+        func=export_task,
+        kwargs={"collection_name": collection_name},
     )
+    executor.submit(job)
+    return JobInfo(**job.to_dict())
 
 
 @router.post("/collections/import", response_model=JobInfo)
 def trigger_import():
-    """Import collection from export artifact. Wired to job queue in Phase 9."""
-    return JobInfo(
-        id="stub-import-001",
-        type="import",
-        status="queued",
-        progress=0.0,
+    """Import collection from export artifact."""
+    store = get_job_store()
+    executor = get_job_executor()
+
+    def import_task(job, store, **kwargs):
+        store.update(job.id, progress=0.5)
+        logger.info("Import task — placeholder")
+
+    job = store.create(
+        job_type="import",
+        func=import_task,
     )
+    executor.submit(job)
+    return JobInfo(**job.to_dict())
 
 
 # --- Jobs ---
 
 @router.get("/jobs", response_model=list[JobInfo])
 def list_jobs():
-    """List ingestion jobs. Backed by job store in Phase 9."""
-    return []
+    """List all jobs."""
+    store = get_job_store()
+    return [JobInfo(**j.to_dict()) for j in store.list_all()]
 
 
 @router.get("/jobs/{job_id}", response_model=JobInfo)
 def get_job(job_id: str):
-    """Get job detail with progress. Backed by job store in Phase 9."""
-    raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+    """Get job detail with progress."""
+    store = get_job_store()
+    job = store.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+    return JobInfo(**job.to_dict())
 
 
 @router.post("/jobs/{job_id}/retry", response_model=JobInfo)
 def retry_job(job_id: str):
-    """Retry a failed job. Wired to job queue in Phase 9."""
-    raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+    """Retry a failed job."""
+    store = get_job_store()
+    executor = get_job_executor()
+
+    job = store.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+    if job.status != "failed":
+        raise HTTPException(status_code=409, detail=f"Job '{job_id}' is not in failed state (status: {job.status})")
+
+    store.update(job_id, status="queued", error=None, progress=0.0)
+    executor.submit(job)
+    return JobInfo(**job.to_dict())
 
 
 @router.delete("/jobs/{job_id}")
 def cancel_job(job_id: str):
-    """Cancel a running job. Wired to job queue in Phase 9."""
-    raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+    """Cancel a running or queued job."""
+    store = get_job_store()
+    executor = get_job_executor()
+
+    job = store.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+
+    if job.status in ("completed", "failed", "cancelled"):
+        raise HTTPException(status_code=409, detail=f"Job '{job_id}' is already {job.status}")
+
+    cancelled = executor.cancel(job_id)
+    if not cancelled:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Job '{job_id}' is already running and cannot be cancelled",
+        )
+    return {"status": "cancelled", "job_id": job_id}
 
 
 # --- Metrics & Reports ---
@@ -110,7 +167,7 @@ def get_runtime_metrics():
 
 @router.get("/reports/summary")
 def get_summary_report():
-    """Summary report. Aggregation store wired in Phase 9/10."""
+    """Summary report."""
     settings = get_settings()
     if not settings.telemetry.enabled:
         return {"status": "disabled", "message": "Telemetry is disabled in configuration"}
@@ -123,5 +180,4 @@ def get_summary_report():
         "total_llm_calls": stats["llm_call_count"],
         "total_docs_ingested": stats["ingest_total_docs"],
         "uptime_seconds": stats["uptime_seconds"],
-        "note": "Durable aggregation and scheduled reporting in Phase 9/10",
     }

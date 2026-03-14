@@ -50,8 +50,11 @@ class JobInfo(BaseModel):
     id: str
     type: str
     status: str
+    collection_name: Optional[str] = None
     progress: Optional[float] = None
     error: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
 
 class ErrorResponse(BaseModel):
