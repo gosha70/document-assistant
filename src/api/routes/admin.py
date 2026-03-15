@@ -1,4 +1,6 @@
 import logging
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, HTTPException
 
 from src.api.schemas import (
@@ -8,11 +10,15 @@ from src.api.schemas import (
     ChunkSample,
     SourceListResponse,
     SourceInfo,
+    AlertInfoSchema,
+    AlertsResponse,
 )
 from src.api.deps import get_vectorstore_backend
 from src.config.settings import get_settings
 from src.utils.metrics import get_metrics_collector
 from src.utils.jobs import get_job_store, get_job_executor
+from src.utils.alerting import AlertChecker
+from src.utils.report_store import get_report_store
 
 logger = logging.getLogger(__name__)
 
@@ -225,33 +231,94 @@ def cancel_job(job_id: str):
 # --- Metrics & Reports ---
 
 
+def _evaluate_alerts() -> list[dict]:
+    """Evaluate current alerts using live metrics."""
+    settings = get_settings()
+    ws = settings.alerting.window_seconds
+    collector = get_metrics_collector()
+    stats = collector.get_stats(window_seconds=2 * ws)
+    process_stats = collector.get_process_stats()
+    windowed_counts = collector.get_windowed_counts(ws)
+    alerts = AlertChecker.check(stats, process_stats, windowed_counts, settings.alerting)
+    return [a.to_dict() for a in alerts]
+
+
+def _generate_snapshot() -> dict:
+    """Create a report snapshot from current metrics."""
+    settings = get_settings()
+    ws = settings.alerting.window_seconds
+    collector = get_metrics_collector()
+    stats = collector.get_stats(window_seconds=2 * ws)
+    return {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "uptime_seconds": stats["uptime_seconds"],
+        "request_count": stats["request_count"],
+        "error_count": stats["error_count"],
+        "llm_call_count": stats["llm_call_count"],
+        "ingest_total_docs": stats["ingest_total_docs"],
+        "ingest_error_count": stats["ingest_error_count"],
+        "retrieval_no_source_count": stats["retrieval_no_source_count"],
+    }
+
+
+@router.get("/alerts", response_model=AlertsResponse)
+def get_alerts():
+    """Returns currently active alerts based on live metrics."""
+    settings = get_settings()
+    if not settings.telemetry.enabled:
+        return AlertsResponse(alerts=[], checked_at=datetime.now(timezone.utc).isoformat())
+
+    alert_dicts = _evaluate_alerts()
+    return AlertsResponse(
+        alerts=[AlertInfoSchema(**a) for a in alert_dicts],
+        checked_at=datetime.now(timezone.utc).isoformat(),
+    )
+
+
 @router.get("/metrics/runtime")
 def get_runtime_metrics():
-    """Live runtime metrics: application stats + process stats."""
+    """Live runtime metrics: application stats + process stats + alerts."""
     settings = get_settings()
     if not settings.telemetry.enabled:
         return {"status": "disabled", "message": "Telemetry is disabled in configuration"}
 
+    ws = settings.alerting.window_seconds
     collector = get_metrics_collector()
     return {
-        "application": collector.get_stats(),
+        "application": collector.get_stats(window_seconds=2 * ws),
         "process": collector.get_process_stats(),
+        "alerts": _evaluate_alerts(),
     }
 
 
 @router.get("/reports/summary")
 def get_summary_report():
-    """Summary report."""
+    """Summary report with snapshot history."""
     settings = get_settings()
     if not settings.telemetry.enabled:
         return {"status": "disabled", "message": "Telemetry is disabled in configuration"}
 
+    ws = settings.alerting.window_seconds
     collector = get_metrics_collector()
-    stats = collector.get_stats()
+    stats = collector.get_stats(window_seconds=2 * ws)
+    store = get_report_store()
     return {
         "total_requests": stats["request_count"],
         "total_errors": stats["error_count"],
         "total_llm_calls": stats["llm_call_count"],
         "total_docs_ingested": stats["ingest_total_docs"],
         "uptime_seconds": stats["uptime_seconds"],
+        "snapshots": store.list_all(),
     }
+
+
+@router.post("/reports/generate")
+def generate_report():
+    """Trigger an on-demand report snapshot."""
+    settings = get_settings()
+    if not settings.telemetry.enabled:
+        return {"status": "disabled", "message": "Telemetry is disabled in configuration"}
+
+    snapshot = _generate_snapshot()
+    get_report_store().add(snapshot)
+    return {"status": "generated", "snapshot": snapshot}

@@ -564,6 +564,11 @@
         <span class="spinner"></span> Loading metrics&hellip;
       </div>
 
+      <div id="alerts-banner" style="display:none; background:var(--danger); color:#fff; padding:12px 16px; border-radius:8px; margin-bottom:16px;">
+        <strong id="alerts-banner-title"></strong>
+        <ul id="alerts-banner-list" style="margin:6px 0 0 18px; padding:0;"></ul>
+      </div>
+
       <div id="metrics-content" style="display:none;">
         <div class="metrics-grid">
           <div class="card" id="app-metrics-card">
@@ -586,6 +591,7 @@
 
       <div class="toolbar">
         <span class="toolbar-title">Summary Report</span>
+        <button class="btn btn-primary" id="reports-generate-btn">Generate Now</button>
         <button class="btn btn-secondary" id="reports-refresh-btn">&#8635; Refresh</button>
       </div>
 
@@ -1331,6 +1337,21 @@
 
     appMetricsBody.innerHTML = buildMetricRows(appRows);
     procMetricsBody.innerHTML = buildMetricRows(procRows);
+
+    // Alerts banner
+    var alertsBanner = document.getElementById('alerts-banner');
+    var alertsTitle  = document.getElementById('alerts-banner-title');
+    var alertsList   = document.getElementById('alerts-banner-list');
+    var alerts = data.alerts || [];
+    if (alerts.length > 0) {
+      alertsTitle.textContent = alerts.length + ' active alert' + (alerts.length > 1 ? 's' : '');
+      alertsList.innerHTML = alerts.map(function (a) {
+        return '<li>' + escapeHtml(a.message) + '</li>';
+      }).join('');
+      alertsBanner.style.display = '';
+    } else {
+      alertsBanner.style.display = 'none';
+    }
   }
 
   function buildMetricRows(rows) {
@@ -1346,11 +1367,28 @@
      TAB 4 — REPORTS
      ================================================================ */
 
-  var reportsState   = document.getElementById('reports-state');
-  var reportsContent = document.getElementById('reports-content');
-  var reportsRefresh = document.getElementById('reports-refresh-btn');
+  var reportsState      = document.getElementById('reports-state');
+  var reportsContent    = document.getElementById('reports-content');
+  var reportsRefresh    = document.getElementById('reports-refresh-btn');
+  var reportsGenerateBtn = document.getElementById('reports-generate-btn');
 
   reportsRefresh.addEventListener('click', loadReports);
+
+  reportsGenerateBtn.addEventListener('click', function () {
+    reportsGenerateBtn.disabled = true;
+    apiFetch('/admin/reports/generate', { method: 'POST' }).then(function (r) {
+      reportsGenerateBtn.disabled = false;
+      if (!r.ok) {
+        return r.json().catch(function () { return { detail: r.statusText }; }).then(function (e) {
+          alert('Error: ' + (e.detail || r.statusText));
+        });
+      }
+      loadReports();
+    }).catch(function (err) {
+      reportsGenerateBtn.disabled = false;
+      alert('Network error: ' + err.message);
+    });
+  });
 
   function loadReports() {
     showStateMsg(reportsState, 'Loading report\u2026', false);
@@ -1368,6 +1406,10 @@
       if (!summaryResp.ok) { showStateMsg(reportsState, 'Error ' + summaryResp.status + ': ' + summaryResp.statusText, true); return; }
 
       return summaryResp.json().then(function (summary) {
+        if (summary.status === 'disabled') {
+          showStateMsg(reportsState, summary.message || 'Telemetry is disabled in configuration.', false);
+          return;
+        }
         renderReports(summary, statusData);
       });
     }).catch(function (err) {
@@ -1406,6 +1448,30 @@
     }
 
     html += '</div>';
+
+    // Snapshot history table
+    var snapshots = summary.snapshots || [];
+    if (snapshots.length > 0) {
+      html += '<div class="card" style="margin-top:16px;"><div class="card-title">Snapshot History (' + snapshots.length + ')</div>';
+      html += '<div style="overflow-x:auto;"><table class="data-table"><thead><tr>' +
+        '<th>Timestamp</th><th>Requests</th><th>Errors</th><th>LLM Calls</th><th>Docs Ingested</th>' +
+        '<th>Ingest Errors</th><th>No-Source</th>' +
+        '</tr></thead><tbody>';
+      // Show newest first
+      for (var i = snapshots.length - 1; i >= 0; i--) {
+        var s = snapshots[i];
+        html += '<tr>' +
+          '<td style="white-space:nowrap;">' + escapeHtml(formatDate(s.timestamp)) + '</td>' +
+          '<td>' + (s.request_count != null ? s.request_count : '') + '</td>' +
+          '<td>' + (s.error_count != null ? s.error_count : '') + '</td>' +
+          '<td>' + (s.llm_call_count != null ? s.llm_call_count : '') + '</td>' +
+          '<td>' + (s.ingest_total_docs != null ? s.ingest_total_docs : '') + '</td>' +
+          '<td>' + (s.ingest_error_count != null ? s.ingest_error_count : '') + '</td>' +
+          '<td>' + (s.retrieval_no_source_count != null ? s.retrieval_no_source_count : '') + '</td>' +
+          '</tr>';
+      }
+      html += '</tbody></table></div></div>';
+    }
 
     reportsContent.innerHTML = html;
   }

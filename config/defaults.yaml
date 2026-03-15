@@ -83,6 +83,19 @@ telemetry:
   enabled: true
   log_llm_calls: true
 
+alerting:
+  enabled: true
+  error_rate_threshold: 0.10
+  memory_rss_mb_threshold: 1024
+  ingest_error_threshold: 5
+  retrieval_no_source_threshold: 10
+  window_seconds: 3600
+
+reporting:
+  enabled: true
+  interval_seconds: 3600
+  max_snapshots: 24
+
 system_prompt: >
   You are a document assistant. Answer questions using ONLY the provided context.
   Rules:

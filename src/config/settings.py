@@ -99,6 +99,21 @@ class TelemetrySettings(BaseModel):
     log_llm_calls: bool
 
 
+class AlertingSettings(BaseModel):
+    enabled: bool
+    error_rate_threshold: float
+    memory_rss_mb_threshold: int
+    ingest_error_threshold: int
+    retrieval_no_source_threshold: int
+    window_seconds: int
+
+
+class ReportingSettings(BaseModel):
+    enabled: bool
+    interval_seconds: int
+    max_snapshots: int
+
+
 class AppSettings(BaseModel):
     name: str
     host: str
@@ -118,6 +133,8 @@ class Settings(BaseModel):
     auth: AuthSettings
     rate_limit: RateLimitSettings
     telemetry: TelemetrySettings
+    alerting: AlertingSettings
+    reporting: ReportingSettings
     system_prompt: str
 
 

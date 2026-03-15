@@ -142,6 +142,11 @@ async def ingest_files(
                         except Exception as rb_err:
                             logger.error(f"Rollback also failed for '{original_name}': {rb_err}")
                         raise
+        except Exception as e:
+            logger.error(f"Failed to ingest '{original_name}': {e}")
+            if settings.telemetry.enabled:
+                get_metrics_collector().record_ingest_error(settings.alerting.window_seconds)
+            raise
         finally:
             os.unlink(tmp_path)
 

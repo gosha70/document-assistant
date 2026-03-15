@@ -93,5 +93,29 @@ class SourceListResponse(BaseModel):
     scanned_chunks: int = 0
 
 
+class AlertInfoSchema(BaseModel):
+    level: str
+    metric: str
+    current_value: float
+    threshold: float
+    message: str
+
+
+class AlertsResponse(BaseModel):
+    alerts: list[AlertInfoSchema]
+    checked_at: str
+
+
+class ReportSnapshot(BaseModel):
+    timestamp: str
+    uptime_seconds: float
+    request_count: int
+    error_count: int
+    llm_call_count: int
+    ingest_total_docs: int
+    ingest_error_count: int
+    retrieval_no_source_count: int
+
+
 class ErrorResponse(BaseModel):
     detail: str

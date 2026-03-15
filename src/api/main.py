@@ -1,6 +1,8 @@
 import logging
 import os
+import threading
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +24,7 @@ def _create_embedding(settings):
 
     if embedding_type == "instructor":
         from src.rag.embeddings import InstructorEmbeddingAdapter
+
         return InstructorEmbeddingAdapter(
             model_name=settings.embedding.model_name,
             device=settings.embedding.device,
@@ -29,6 +32,7 @@ def _create_embedding(settings):
         )
     elif embedding_type == "huggingface":
         from src.rag.embeddings import HuggingFaceEmbeddingAdapter
+
         return HuggingFaceEmbeddingAdapter(
             model_name=settings.embedding.model_name,
             device=settings.embedding.device,
@@ -45,6 +49,7 @@ def _create_backend(settings):
 
     if backend_type == "chroma":
         from src.rag.chroma_backend import ChromaBackend
+
         return ChromaBackend(
             embedding=embedding,
             persist_directory=settings.vectorstore.persist_directory,
@@ -53,6 +58,7 @@ def _create_backend(settings):
         )
     elif backend_type == "qdrant":
         from src.rag.qdrant_backend import QdrantBackend
+
         return QdrantBackend(
             embedding=embedding,
             url=settings.vectorstore.qdrant_url,
@@ -70,6 +76,7 @@ def _create_reranker(settings):
     if not settings.reranker.enabled:
         return None
     from src.rag.reranking import CrossEncoderReranker
+
     return CrossEncoderReranker(model_name=settings.reranker.model_name)
 
 
@@ -127,6 +134,37 @@ def _create_llm(settings):
         raise ValueError(f"Unknown LLM backend: '{backend}'. Supported: legacy, openai, ollama")
 
 
+_report_stop_event = threading.Event()
+
+
+def _schedule_report_loop(interval: int, window_seconds: int):
+    """Run in a daemon thread. Snapshots metrics every `interval` seconds."""
+    from src.utils.metrics import get_metrics_collector
+    from src.utils.report_store import get_report_store
+
+    while not _report_stop_event.is_set():
+        _report_stop_event.wait(interval)
+        if _report_stop_event.is_set():
+            break
+        try:
+            collector = get_metrics_collector()
+            stats = collector.get_stats(window_seconds=2 * window_seconds)
+            snapshot = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "uptime_seconds": stats["uptime_seconds"],
+                "request_count": stats["request_count"],
+                "error_count": stats["error_count"],
+                "llm_call_count": stats["llm_call_count"],
+                "ingest_total_docs": stats["ingest_total_docs"],
+                "ingest_error_count": stats["ingest_error_count"],
+                "retrieval_no_source_count": stats["retrieval_no_source_count"],
+            }
+            get_report_store().add(snapshot)
+            logger.debug("Periodic report snapshot generated")
+        except Exception as e:
+            logger.warning(f"Periodic report snapshot failed: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle for the FastAPI application."""
@@ -146,7 +184,9 @@ async def lifespan(app: FastAPI):
             name = col["name"]
             if backend.get_embedding_provenance(name) is None:
                 backend._set_provenance(name)
-                logger.info(f"Migrated legacy collection '{name}' — stamped provenance: {backend._embedding.model_name}")
+                logger.info(
+                    f"Migrated legacy collection '{name}' — stamped provenance: {backend._embedding.model_name}"
+                )
     except Exception as e:
         logger.warning(f"Legacy collection migration check failed: {e}")
 
@@ -166,10 +206,33 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"LLM init failed ({e}); /chat will return 503 until an LLM is available")
 
+    # Start periodic report thread
+    if settings.reporting.enabled and settings.telemetry.enabled:
+        from src.utils.report_store import get_report_store, ReportStore
+
+        # Ensure store uses configured max_snapshots
+        store = get_report_store()
+        if store._snapshots.maxlen != settings.reporting.max_snapshots:
+            store._snapshots = __import__("collections").deque(
+                store._snapshots, maxlen=settings.reporting.max_snapshots
+            )
+        _report_stop_event.clear()
+        report_thread = threading.Thread(
+            target=_schedule_report_loop,
+            args=(settings.reporting.interval_seconds, settings.alerting.window_seconds),
+            daemon=True,
+        )
+        report_thread.start()
+        logger.info(f"Periodic report thread started (interval={settings.reporting.interval_seconds}s)")
+
     yield
+
+    # Stop periodic report thread
+    _report_stop_event.set()
 
     # Shutdown background job executor and reset singletons
     from src.utils.jobs import reset_jobs
+
     reset_jobs()
     logger.info("Shutting down")
 

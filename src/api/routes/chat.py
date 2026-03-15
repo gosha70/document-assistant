@@ -38,6 +38,8 @@ def chat(request: ChatRequest):
             metrics.record_retrieval(time.monotonic() - start)
 
         if not documents:
+            if metrics:
+                metrics.record_retrieval_no_source(settings.alerting.window_seconds)
             return ChatResponse(answer="No relevant documents found for your question.", sources=[])
 
         result = generator.generate(
@@ -83,6 +85,9 @@ def chat_stream(request: ChatRequest):
         metrics.record_retrieval(time.monotonic() - start)
 
     if not documents:
+        if metrics:
+            metrics.record_retrieval_no_source(settings.alerting.window_seconds)
+
         def empty_stream():
             yield f"data: {json.dumps({'type': 'token', 'content': 'No relevant documents found for your question.'})}\n\n"
             yield f"data: {json.dumps({'type': 'sources', 'sources': []})}\n\n"
