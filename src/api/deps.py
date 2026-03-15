@@ -3,6 +3,7 @@
 Provides singleton-style accessors for the vector store backend, retriever,
 and generator. These are initialised lazily on first access.
 """
+
 import logging
 from typing import Any, Optional
 
@@ -52,6 +53,7 @@ def get_retriever(collection_name: Optional[str] = None) -> Retriever:
         collection_name=collection,
         reranker=reranker,
         final_k=settings.reranker.top_k,
+        use_hybrid=settings.vectorstore.hybrid.enabled,
     )
 
 

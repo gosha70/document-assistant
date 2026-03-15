@@ -66,6 +66,12 @@ class LLMSettings(BaseModel):
     max_tokens: int
 
 
+class HybridSearchSettings(BaseModel):
+    enabled: bool = True
+    sparse_encoder: str = "bm25"
+    rrf_k: int = 60
+
+
 class VectorStoreSettings(BaseModel):
     backend: str
     collection_name: str
@@ -75,6 +81,7 @@ class VectorStoreSettings(BaseModel):
     qdrant_api_key: Optional[str]
     qdrant_prefer_grpc: bool
     allow_legacy_collections: bool
+    hybrid: HybridSearchSettings = HybridSearchSettings()
 
 
 class UploadSettings(BaseModel):

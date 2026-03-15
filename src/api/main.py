@@ -47,6 +47,12 @@ def _create_backend(settings):
     backend_type = settings.vectorstore.backend
     embedding = _create_embedding(settings)
 
+    hybrid_cfg = {
+        "enabled": settings.vectorstore.hybrid.enabled,
+        "sparse_encoder": settings.vectorstore.hybrid.sparse_encoder,
+        "rrf_k": settings.vectorstore.hybrid.rrf_k,
+    }
+
     if backend_type == "chroma":
         from src.rag.chroma_backend import ChromaBackend
 
@@ -55,6 +61,7 @@ def _create_backend(settings):
             persist_directory=settings.vectorstore.persist_directory,
             embedding_type=settings.embedding.type,
             allow_legacy_collections=settings.vectorstore.allow_legacy_collections,
+            hybrid_settings=hybrid_cfg,
         )
     elif backend_type == "qdrant":
         from src.rag.qdrant_backend import QdrantBackend
@@ -66,6 +73,7 @@ def _create_backend(settings):
             prefer_grpc=settings.vectorstore.qdrant_prefer_grpc,
             embedding_type=settings.embedding.type,
             allow_legacy_collections=settings.vectorstore.allow_legacy_collections,
+            hybrid_settings=hybrid_cfg,
         )
     else:
         raise ValueError(f"Unknown vectorstore backend: '{backend_type}'. Supported: chroma, qdrant")

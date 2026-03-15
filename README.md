@@ -8,7 +8,7 @@ The application's setup involves creating a vector store and transforming docume
 ### Installation
 1. Install required Python libraries
 ```
-pip3 install -r requirements.txt
+poetry install
 ```
 #### Requirement Details
 

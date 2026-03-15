@@ -1,12 +1,299 @@
 {
   "version": "0.1.0",
-  "description": "Baseline evaluation dataset for Document Assistant. Add project-specific Q/A/context triples as the corpus grows.",
+  "description": "Synthetic evaluation dataset for Document Assistant retrieval pipeline. 30 Q/A/context triples across factual, comparison, multi-hop, and negative question types.",
   "metadata": {
-    "created": "2026-03-12",
+    "created": "2026-03-15",
     "embedding_model": "hkunlp/instructor-large",
     "chunk_size": 1000,
     "chunk_overlap": 200,
-    "splitter": "RecursiveCharacterTextSplitter"
+    "splitter": "RecursiveCharacterTextSplitter",
+    "note": "Synthetic data for eval harness development. Replace with project-specific samples for production baselines."
   },
-  "samples": []
+  "samples": [
+    {
+      "question": "What is the default chunk size used by the document splitter?",
+      "ground_truth": "The default chunk size is 512 characters.",
+      "contexts": [
+        "The RecursiveCharacterTextSplitter is configured with a default chunk size of 512 characters and a chunk overlap of 50 characters. These values can be adjusted in the chunking configuration section of defaults.yaml.",
+        "Document chunking is the process of breaking large documents into smaller segments suitable for embedding and retrieval. The chunk size determines the maximum length of each segment."
+      ],
+      "type": "factual"
+    },
+    {
+      "question": "Which embedding model is used by default?",
+      "ground_truth": "The default embedding model is hkunlp/instructor-large.",
+      "contexts": [
+        "The embedding pipeline uses the InstructorEmbedding library with the hkunlp/instructor-large model by default. This model produces 768-dimensional embeddings and supports instruction-based encoding for improved retrieval quality.",
+        "Embeddings are generated on the CPU by default. Set the device field to 'cuda' in the embedding configuration to use GPU acceleration."
+      ],
+      "type": "factual"
+    },
+    {
+      "question": "What vector stores are supported?",
+      "ground_truth": "The system supports Chroma and Qdrant as vector store backends.",
+      "contexts": [
+        "The vectorstore backend is configurable via the vectorstore.backend setting. Supported values are 'chroma' for ChromaDB and 'qdrant' for Qdrant. Chroma is the default for local development.",
+        "Each backend implements the VectorStoreBackend abstract interface, providing store, search, delete, and collection management operations."
+      ],
+      "type": "factual"
+    },
+    {
+      "question": "How does the reranker improve search results?",
+      "ground_truth": "The reranker uses a cross-encoder model (ms-marco-MiniLM-L-6-v2) to rescore the initial retrieval candidates and return the top-k most relevant documents.",
+      "contexts": [
+        "After initial retrieval, the reranker applies a cross-encoder model to rescore all candidate documents against the query. The default model is cross-encoder/ms-marco-MiniLM-L-6-v2, which provides a good balance between quality and speed.",
+        "The reranker receives the top 20 candidates from the retrieval stage and returns the 5 most relevant documents (configurable via reranker.top_k). If the reranker is disabled, the system returns the top-k results from the initial retrieval without rescoring."
+      ],
+      "type": "factual"
+    },
+    {
+      "question": "What file formats can be uploaded for ingestion?",
+      "ground_truth": "Supported formats include CSV, DDL, XLSX, Java, JavaScript, JSON, HTML, Markdown, PDF, Python, RTF, SQL, TXT, XML, XSL, and YAML.",
+      "contexts": [
+        "The upload module accepts the following file extensions: csv, ddl, xlsx, java, js, json, html, md, pdf, py, rtf, sql, txt, xml, xsl, yaml. The maximum file size is 50 MB by default.",
+        "Each file type is processed by a dedicated converter that extracts text content. The converted text is then passed through the chunking pipeline before embedding."
+      ],
+      "type": "factual"
+    },
+    {
+      "question": "What is the maximum file size for uploads?",
+      "ground_truth": "The maximum file size is 50 MB.",
+      "contexts": [
+        "The upload module accepts the following file extensions: csv, ddl, xlsx, java, js, json, html, md, pdf, py, rtf, sql, txt, xml, xsl, yaml. The maximum file size is 50 MB by default.",
+        "File size limits are enforced at the API layer before processing begins. Files exceeding the limit are rejected with a 413 status code."
+      ],
+      "type": "factual"
+    },
+    {
+      "question": "Compare Chroma and Qdrant backend capabilities.",
+      "ground_truth": "Chroma is simpler to set up and runs locally with SQLite persistence, while Qdrant supports gRPC, named vectors, server-side sparse indexing, and is better suited for production deployments with remote hosting.",
+      "contexts": [
+        "ChromaDB uses SQLite-backed persistence (chroma.sqlite3) and runs as an in-process library. It supports dense vector search out of the box but does not have native BM25 or sparse vector support.",
+        "Qdrant supports gRPC for efficient communication, named vector configurations for storing multiple vector types per point, and server-side sparse vector indexing with IDF modifiers. It can run locally or as a remote service.",
+        "Both backends implement the VectorStoreBackend interface and track embedding provenance to prevent vector space mismatches when switching models."
+      ],
+      "type": "comparison"
+    },
+    {
+      "question": "What are the differences between hybrid and dense-only search?",
+      "ground_truth": "Dense-only search uses vector similarity exclusively, while hybrid search combines dense vector similarity with BM25 keyword matching and fuses the results using Reciprocal Rank Fusion for better recall on keyword-heavy queries.",
+      "contexts": [
+        "Dense search computes cosine similarity between the query embedding and stored document embeddings. It excels at semantic matching but can miss results that contain exact keywords without similar meaning.",
+        "Hybrid search combines dense vector similarity with BM25 sparse keyword matching. Results from both methods are fused using Reciprocal Rank Fusion (RRF) with a configurable k parameter (default 60).",
+        "The hybrid search setting is controlled by vectorstore.hybrid.enabled in the configuration. When disabled, all search operations use dense-only retrieval."
+      ],
+      "type": "comparison"
+    },
+    {
+      "question": "How does the instructor embedding model differ from a standard HuggingFace model?",
+      "ground_truth": "The instructor model accepts task-specific instructions prepended to the input text, which allows it to produce more targeted embeddings for retrieval versus classification tasks. Standard HuggingFace models encode the raw text without instructions.",
+      "contexts": [
+        "The InstructorEmbedding model (hkunlp/instructor-large) takes an instruction prefix along with the input text. For retrieval, the instruction is typically 'Represent the document for retrieval:' which helps the model produce embeddings optimized for similarity search.",
+        "Standard HuggingFace sentence-transformers models encode raw text directly without any instruction prefix. They are generally faster but may not perform as well on retrieval-specific benchmarks.",
+        "Both embedding types are supported via the EmbeddingAdapter interface. The choice is configured via embedding.type ('instructor' or 'huggingface') in the settings."
+      ],
+      "type": "comparison"
+    },
+    {
+      "question": "What is the difference between the legacy LLM backend and the OpenAI backend?",
+      "ground_truth": "The legacy backend loads local GGUF/GPTQ/AWQ model files via llama-cpp-python for fully offline operation, while the OpenAI backend uses the ChatOpenAI client to call remote API endpoints (OpenAI or compatible).",
+      "contexts": [
+        "The legacy LLM backend uses llama-cpp-python to load quantized model files (GGUF, GPTQ, AWQ) from the local filesystem. It supports fully offline operation but requires significant RAM and optional GPU resources.",
+        "The OpenAI backend uses langchain's ChatOpenAI client, which supports both the official OpenAI API and compatible endpoints (e.g., local vLLM or Ollama servers) via the base_url configuration.",
+        "A third backend option, 'ollama', is a convenience wrapper that sets the base_url to http://localhost:11434/v1 by default for local Ollama deployments."
+      ],
+      "type": "comparison"
+    },
+    {
+      "question": "What embedding model is used and what LLM generates the answers?",
+      "ground_truth": "The embedding model is hkunlp/instructor-large, and the default LLM is TheBloke/Llama-2-7b-Chat-GGUF loaded via the legacy backend.",
+      "contexts": [
+        "The embedding pipeline uses the InstructorEmbedding library with the hkunlp/instructor-large model by default. This model produces 768-dimensional embeddings and supports instruction-based encoding for improved retrieval quality.",
+        "The legacy LLM backend uses llama-cpp-python to load quantized model files (GGUF, GPTQ, AWQ) from the local filesystem. It supports fully offline operation but requires significant RAM and optional GPU resources.",
+        "The default model configuration specifies TheBloke/Llama-2-7b-Chat-GGUF as the model ID with the Q4_K_M quantization variant. The context window is set to 6144 tokens."
+      ],
+      "type": "multi-hop"
+    },
+    {
+      "question": "If a user uploads a 60 MB PDF, what happens and why?",
+      "ground_truth": "The upload is rejected with a 413 status code because the maximum file size is 50 MB, which is enforced at the API layer before processing begins.",
+      "contexts": [
+        "The upload module accepts the following file extensions: csv, ddl, xlsx, java, js, json, html, md, pdf, py, rtf, sql, txt, xml, xsl, yaml. The maximum file size is 50 MB by default.",
+        "File size limits are enforced at the API layer before processing begins. Files exceeding the limit are rejected with a 413 status code.",
+        "The upload route validates the file extension and size before passing the file to the ingestion pipeline. Invalid files receive descriptive error messages."
+      ],
+      "type": "multi-hop"
+    },
+    {
+      "question": "How does the system prevent vector space mismatches when a user changes the embedding model?",
+      "ground_truth": "Each collection stores embedding provenance metadata (model name and type). On access, the backend validates that the current embedding model matches the stored provenance. A mismatch raises an error, preventing queries with incompatible vectors.",
+      "contexts": [
+        "Both backends implement embedding provenance tracking. When a collection is created, the embedding model name and type are stored in the collection metadata.",
+        "On every search or store operation, the backend validates that the configured embedding model matches the collection's stored provenance. If there is a mismatch, a ValueError is raised to prevent querying with incompatible vectors.",
+        "Legacy collections created before provenance tracking was added can be auto-migrated: the system stamps the current model's provenance on first write, with a warning log."
+      ],
+      "type": "multi-hop"
+    },
+    {
+      "question": "What happens when a reranker is enabled but fewer than top_k documents are retrieved?",
+      "ground_truth": "When the number of retrieved documents is less than or equal to final_k, the reranker is not called. The documents are returned as-is, truncated to final_k.",
+      "contexts": [
+        "The reranker receives the top 20 candidates from the retrieval stage and returns the 5 most relevant documents (configurable via reranker.top_k). If the reranker is disabled, the system returns the top-k results from the initial retrieval without rescoring.",
+        "The Retriever class checks whether the number of deduplicated candidates exceeds final_k before invoking the reranker. If not, the candidates are simply truncated to final_k without rescoring, avoiding unnecessary computation."
+      ],
+      "type": "multi-hop"
+    },
+    {
+      "question": "How does the system handle a query when the Qdrant collection uses legacy single-vector format but hybrid search is enabled?",
+      "ground_truth": "The backend auto-detects the legacy single-vector format during collection validation, logs a warning, disables hybrid for that collection, and falls back to dense-only search.",
+      "contexts": [
+        "When validating a collection, the Qdrant backend detects whether it uses single (legacy) or named vector configurations. If the collection is single-vector and hybrid search is enabled in settings, the backend logs a warning and disables hybrid search for that collection.",
+        "The detection result is cached so that subsequent queries don't repeat the check. This allows the system to gracefully handle a mix of legacy and new collections in the same Qdrant instance.",
+        "Named vector collections store both a 'dense' vector and a 'sparse' vector per point. Legacy collections only have an unnamed dense vector."
+      ],
+      "type": "multi-hop"
+    },
+    {
+      "question": "Trace the path of a document from upload to being returned as a search result.",
+      "ground_truth": "The document is uploaded via the API, validated for size and type, converted to text by a format-specific converter, split into chunks by RecursiveCharacterTextSplitter, embedded using the configured model, stored in the vector store with metadata and provenance, and later retrieved via dense or hybrid search, deduplicated, optionally reranked, and returned with source citations.",
+      "contexts": [
+        "The upload route validates the file extension and size before passing the file to the ingestion pipeline. Invalid files receive descriptive error messages.",
+        "Each file type is processed by a dedicated converter that extracts text content. The converted text is then passed through the chunking pipeline before embedding.",
+        "The RecursiveCharacterTextSplitter is configured with a default chunk size of 512 characters and a chunk overlap of 50 characters. These values can be adjusted in the chunking configuration section of defaults.yaml.",
+        "After chunking, documents are embedded using the configured model and stored in the vector store. Each document retains its source metadata (filename, page number) for citation purposes.",
+        "The Retriever class orchestrates the search pipeline: initial retrieval (dense or hybrid), deduplication by document ID, optional reranking, and truncation to final_k results."
+      ],
+      "type": "multi-hop"
+    },
+    {
+      "question": "What machine learning framework does the system use for reinforcement learning?",
+      "ground_truth": "The provided documents do not contain information about reinforcement learning.",
+      "contexts": [
+        "The system uses PyTorch as its deep learning framework for running embedding models and cross-encoder rerankers. Sentence-transformers and InstructorEmbedding libraries build on top of PyTorch.",
+        "The default embedding model (hkunlp/instructor-large) runs on CPU by default but can be configured to use CUDA for GPU acceleration."
+      ],
+      "type": "negative"
+    },
+    {
+      "question": "How does the system handle multi-tenant data isolation?",
+      "ground_truth": "The provided documents do not contain information about multi-tenant data isolation.",
+      "contexts": [
+        "Authentication is controlled via the auth settings. When enabled, requests must include a valid token in the Authorization header. Admin and user tokens provide different access levels.",
+        "Rate limiting can be enabled to restrict the number of requests per time window. This helps prevent abuse but does not provide tenant-level isolation."
+      ],
+      "type": "negative"
+    },
+    {
+      "question": "What is the system's disaster recovery strategy?",
+      "ground_truth": "The provided documents do not contain information about a disaster recovery strategy.",
+      "contexts": [
+        "ChromaDB uses SQLite-backed persistence (chroma.sqlite3) and runs as an in-process library. It supports dense vector search out of the box but does not have native BM25 or sparse vector support.",
+        "Qdrant supports gRPC for efficient communication, named vector configurations for storing multiple vector types per point, and server-side sparse vector indexing with IDF modifiers. It can run locally or as a remote service."
+      ],
+      "type": "negative"
+    },
+    {
+      "question": "Does the system support real-time streaming of search results?",
+      "ground_truth": "The provided documents do not contain information about real-time streaming of search results. The system does support streaming of LLM-generated answers, but not streaming of retrieval results.",
+      "contexts": [
+        "The Generator class supports streaming via generate_stream(), which yields individual text chunks as the LLM produces them. This requires an LLM that supports the .stream() method.",
+        "If the LLM does not support streaming, generate_stream() falls back to a single invoke() call and yields the entire response at once."
+      ],
+      "type": "negative"
+    },
+    {
+      "question": "What is the purpose of the system prompt?",
+      "ground_truth": "The system prompt instructs the LLM to answer questions using only the provided context, avoid speculation, cite sources, and respond concisely.",
+      "contexts": [
+        "The system prompt is configured in the settings and injected into every LLM call. It instructs the model to answer using only the provided context, never use information outside the context, mention where in the context the information comes from, and be concise and direct.",
+        "If the answer is not found in the context, the system prompt instructs the LLM to respond with: 'I could not find information about this in the provided documents.'"
+      ],
+      "type": "factual"
+    },
+    {
+      "question": "How is telemetry data collected?",
+      "ground_truth": "When telemetry is enabled, the system records LLM call latency, input length, and output length via a metrics collector. These metrics are logged after each LLM invocation.",
+      "contexts": [
+        "The telemetry system is controlled by two settings: telemetry.enabled (master switch) and telemetry.log_llm_calls (per-call logging). When both are true, each LLM invocation records latency, input prompt length, and output length.",
+        "Metrics are collected via get_metrics_collector(), which provides methods like record_llm_call(latency, input_len, output_len). The collector aggregates metrics for the reporting module."
+      ],
+      "type": "factual"
+    },
+    {
+      "question": "What is the chunk overlap and why is it used?",
+      "ground_truth": "The default chunk overlap is 50 characters (roughly 10% of the 512-character chunk size). Overlap ensures that information spanning a chunk boundary is not lost, as the end of one chunk is repeated at the beginning of the next.",
+      "contexts": [
+        "The RecursiveCharacterTextSplitter is configured with a default chunk size of 512 characters and a chunk overlap of 50 characters. These values can be adjusted in the chunking configuration section of defaults.yaml.",
+        "Chunk overlap ensures that sentences or concepts spanning a chunk boundary are captured in at least one complete chunk. The recommended overlap is 10-15% of the chunk size to balance coverage with storage efficiency."
+      ],
+      "type": "factual"
+    },
+    {
+      "question": "Compare the rate limiting and authentication features.",
+      "ground_truth": "Authentication controls who can access the API using admin and user tokens, while rate limiting restricts how many requests any client can make within a time window. Both are independently configurable and disabled by default.",
+      "contexts": [
+        "Authentication is controlled via the auth settings. When enabled, requests must include a valid token in the Authorization header. Admin and user tokens provide different access levels.",
+        "Rate limiting can be enabled to restrict the number of requests per time window. This helps prevent abuse but does not provide tenant-level isolation.",
+        "Both features are implemented as FastAPI middleware and are disabled by default. They can be enabled independently via their respective configuration sections."
+      ],
+      "type": "comparison"
+    },
+    {
+      "question": "How are prompt templates managed and loaded?",
+      "ground_truth": "Prompt templates are stored as versioned YAML files in the prompts/ directory. The load_prompt function resolves the template by trying specific variants first, then falling back to generic templates. Input variables are auto-detected from the template content.",
+      "contexts": [
+        "All prompt templates are stored as YAML files in the prompts/ directory. Each file contains a templates dictionary with named variants (e.g., 'generic', 'generic_history') and a list of input_variables.",
+        "The load_prompt() function resolves the template using a fallback chain: specific variant -> template_type -> generic_history/generic -> generic. This allows adding specialized templates without breaking existing behavior.",
+        "Input variables like 'history' and 'system_prompt' are automatically injected based on the template content, so callers don't need to manage the variable list manually."
+      ],
+      "type": "factual"
+    },
+    {
+      "question": "What happens when the LLM backend is set to 'ollama'?",
+      "ground_truth": "The ollama backend is a convenience wrapper that creates a ChatOpenAI client with the base_url defaulting to http://localhost:11434/v1, targeting a local Ollama deployment.",
+      "contexts": [
+        "A third backend option, 'ollama', is a convenience wrapper that sets the base_url to http://localhost:11434/v1 by default for local Ollama deployments.",
+        "The OpenAI backend uses langchain's ChatOpenAI client, which supports both the official OpenAI API and compatible endpoints (e.g., local vLLM or Ollama servers) via the base_url configuration."
+      ],
+      "type": "factual"
+    },
+    {
+      "question": "If the BM25 side-index pickle file is missing but the Chroma collection has documents, what happens?",
+      "ground_truth": "The BM25 index is rebuilt by reading all documents from the Chroma collection and re-tokenizing them. The rebuilt index is then saved to disk if in disk-backed mode.",
+      "contexts": [
+        "The BM25 side-index for Chroma operates in two modes: disk-backed (pickle file at persist_directory/.bm25_<collection>.pkl) and in-memory. If the pickle file is missing, the index is rebuilt from Chroma collection data on next access.",
+        "The rebuild process reads all documents from the Chroma collection, tokenizes them, and reconstructs the BM25 index. After rebuilding, the index is saved to disk (no-op for in-memory mode).",
+        "This self-healing behavior ensures that hybrid search works correctly even after process restarts or if the pickle file is accidentally deleted."
+      ],
+      "type": "multi-hop"
+    },
+    {
+      "question": "What alerting thresholds are configured by default?",
+      "ground_truth": "The default thresholds are: error rate above 10%, memory RSS above 1024 MB, more than 5 ingest errors, and more than 10 retrieval-no-source events, all within a 3600-second window.",
+      "contexts": [
+        "The alerting system monitors several metrics: error_rate_threshold (0.10, i.e., 10%), memory_rss_mb_threshold (1024 MB), ingest_error_threshold (5 errors), and retrieval_no_source_threshold (10 events). All thresholds are evaluated within a configurable time window.",
+        "The default alerting window is 3600 seconds (1 hour). When any threshold is exceeded, the alerting module triggers a warning that can be consumed by the monitoring console."
+      ],
+      "type": "factual"
+    },
+    {
+      "question": "How does Reciprocal Rank Fusion combine results from dense and sparse search?",
+      "ground_truth": "RRF assigns each document a score of 1/(k + rank) for each ranked list it appears in, sums the scores across lists, and returns results sorted by descending total score. Documents are matched by their backend document ID.",
+      "contexts": [
+        "Reciprocal Rank Fusion (RRF) combines multiple ranked lists by assigning each document a score based on its rank position: score = 1 / (k + rank), where k is a smoothing constant (default 60). The scores are summed across all lists in which the document appears.",
+        "Documents from different ranked lists are matched by their stable backend document ID (metadata['id']). This prevents incorrectly merging distinct chunks that happen to share identical text from different source files.",
+        "The fused results are sorted by descending total RRF score and optionally truncated to top_n results."
+      ],
+      "type": "factual"
+    },
+    {
+      "question": "Can the system generate answers from a knowledge graph?",
+      "ground_truth": "The provided documents do not contain information about generating answers from a knowledge graph.",
+      "contexts": [
+        "The Generator class produces answers by formatting a prompt with the retrieved context chunks and sending it to the configured LLM. The context is assembled by concatenating the page_content of each retrieved document.",
+        "Source citations are extracted from document metadata, including the source filename, page number, and a 200-character excerpt of the chunk content."
+      ],
+      "type": "negative"
+    }
+  ]
 }

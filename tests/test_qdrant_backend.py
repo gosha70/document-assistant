@@ -1,4 +1,5 @@
 """Tests for QdrantBackend with mocked qdrant_client."""
+
 import pytest
 from unittest.mock import MagicMock, patch
 from langchain_core.documents import Document
@@ -28,6 +29,7 @@ def _make_backend(mock_client, embedding=None, allow_legacy_collections=True):
     emb = embedding or _make_embedding_mock()
     with patch("qdrant_client.QdrantClient", return_value=mock_client):
         from src.rag.qdrant_backend import QdrantBackend
+
         backend = QdrantBackend(
             embedding=emb,
             url="http://localhost:6333",
@@ -198,13 +200,20 @@ class TestCollectionInfo:
         mock_client.get_collection.return_value = _make_collection_info(points_count=11)
         prov_point = MagicMock()
         prov_point.payload = {"embedding_model_name": "my-model", "embedding_type": "instructor"}
-        mock_client.retrieve.return_value = [prov_point]
+
+        # Provenance sentinel exists, sparse vocab sentinel does not
+        def _retrieve(collection_name, ids, **kwargs):
+            if ids == ["00000000-0000-0000-0000-000000000000"]:
+                return [prov_point]
+            return []
+
+        mock_client.retrieve.side_effect = _retrieve
 
         backend = _make_backend(mock_client)
         info = backend.get_collection_info("test_col")
 
         assert info["embedding_model"] == "my-model"
-        assert info["document_count"] == 10  # sentinel subtracted
+        assert info["document_count"] == 10  # provenance sentinel subtracted
 
     def test_get_collection_info_not_found(self):
         mock_client = MagicMock()
@@ -305,6 +314,7 @@ class TestProvenance:
         emb = _make_embedding_mock()
         with patch("qdrant_client.QdrantClient", return_value=mock_client):
             from src.rag.qdrant_backend import QdrantBackend
+
             backend = QdrantBackend(
                 embedding=emb,
                 url="http://localhost:6333",
@@ -366,7 +376,14 @@ class TestProvenance:
             "embedding_model_name": "test-model",
             "embedding_type": "instructor",
         }
-        mock_client.retrieve.return_value = [prov_point]
+
+        # Only provenance sentinel exists, not sparse vocab
+        def _retrieve(collection_name, ids, **kwargs):
+            if ids == ["00000000-0000-0000-0000-000000000000"]:
+                return [prov_point]
+            return []
+
+        mock_client.retrieve.side_effect = _retrieve
 
         backend = _make_backend(mock_client)
         assert backend.count("test_col") == 10
@@ -384,6 +401,7 @@ class TestProvenance:
 class TestBackendFactory:
     def test_qdrant_backend_wired_in_factory(self):
         from src.api.main import _create_backend
+
         settings = MagicMock()
         settings.vectorstore.backend = "qdrant"
         settings.vectorstore.qdrant_url = "http://localhost:6333"
@@ -402,10 +420,12 @@ class TestBackendFactory:
                 backend = _create_backend(settings)
 
         from src.rag.qdrant_backend import QdrantBackend
+
         assert isinstance(backend, QdrantBackend)
 
     def test_unknown_backend_error_message_includes_qdrant(self):
         from src.api.main import _create_backend
+
         settings = MagicMock()
         settings.vectorstore.backend = "unknown_db"
         settings.embedding.type = "instructor"

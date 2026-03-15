@@ -1,4 +1,5 @@
 """Tests for the RAG interface layer: vectorstore, retrieval, reranking, chunking, generation."""
+
 import pytest
 from unittest.mock import MagicMock
 from langchain_core.documents import Document
@@ -39,6 +40,45 @@ class TestRetriever:
         docs = r.retrieve("query")
         reranker.rerank.assert_called_once()
         assert len(docs) == 3
+
+    def test_deduplicate_preserves_different_ids_same_content(self):
+        """Two documents with identical page_content but different IDs must both survive dedup."""
+        backend = MagicMock(spec=VectorStoreBackend)
+        docs = [
+            Document(page_content="identical text", metadata={"id": "doc-1", "source": "a.txt"}),
+            Document(page_content="identical text", metadata={"id": "doc-2", "source": "b.txt"}),
+        ]
+        backend.hybrid_search.return_value = docs
+        r = Retriever(backend=backend, collection_name="col", final_k=10)
+        result = r.retrieve("query")
+        assert len(result) == 2
+        result_ids = {doc.metadata["id"] for doc in result}
+        assert result_ids == {"doc-1", "doc-2"}
+
+    def test_deduplicate_collapses_same_id(self):
+        """Two documents with the same ID should be collapsed to one."""
+        backend = MagicMock(spec=VectorStoreBackend)
+        docs = [
+            Document(page_content="text v1", metadata={"id": "doc-1", "source": "a.txt"}),
+            Document(page_content="text v2", metadata={"id": "doc-1", "source": "a.txt"}),
+        ]
+        backend.hybrid_search.return_value = docs
+        r = Retriever(backend=backend, collection_name="col", final_k=10)
+        result = r.retrieve("query")
+        assert len(result) == 1
+
+    def test_deduplicate_falls_back_to_content_without_id(self):
+        """Without metadata ID, dedup falls back to page_content matching."""
+        backend = MagicMock(spec=VectorStoreBackend)
+        docs = [
+            Document(page_content="same text", metadata={"source": "a.txt"}),
+            Document(page_content="same text", metadata={"source": "b.txt"}),
+            Document(page_content="different text", metadata={"source": "c.txt"}),
+        ]
+        backend.hybrid_search.return_value = docs
+        r = Retriever(backend=backend, collection_name="col", final_k=10)
+        result = r.retrieve("query")
+        assert len(result) == 2
 
 
 class TestNoOpReranker:

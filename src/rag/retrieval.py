@@ -44,6 +44,11 @@ class Retriever:
 
         docs = self._deduplicate(docs)
 
+        # Tag each document with search_type for eval tracking
+        search_type = "hybrid" if self._use_hybrid else "dense"
+        for doc in docs:
+            doc.metadata["search_type"] = search_type
+
         if self._reranker and len(docs) > self._final_k:
             docs = self._reranker.rerank(query=query, documents=docs, top_k=self._final_k)
             logger.info(f"Reranked to {len(docs)} documents")
@@ -54,11 +59,15 @@ class Retriever:
 
     @staticmethod
     def _deduplicate(docs: list[Document]) -> list[Document]:
-        """Remove duplicate documents based on page_content."""
+        """Remove duplicate documents based on stable backend ID.
+
+        Uses metadata["id"] (set by backends at store time) as the dedup key.
+        Falls back to page_content when no ID is present.
+        """
         seen: set[str] = set()
         unique: list[Document] = []
         for doc in docs:
-            key = doc.page_content.strip()
+            key = doc.metadata.get("id") or doc.page_content.strip()
             if key not in seen:
                 seen.add(key)
                 unique.append(doc)

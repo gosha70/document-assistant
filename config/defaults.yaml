@@ -48,6 +48,10 @@ vectorstore:
   qdrant_api_key: null
   qdrant_prefer_grpc: false
   allow_legacy_collections: false
+  hybrid:
+    enabled: true
+    sparse_encoder: "bm25"
+    rrf_k: 60
 
 upload:
   max_file_size_mb: 50

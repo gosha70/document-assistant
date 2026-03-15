@@ -29,6 +29,7 @@ class ChromaBackend(VectorStoreBackend):
         persist_directory: Optional[str] = None,
         embedding_type: str = "instructor",
         allow_legacy_collections: bool = False,
+        hybrid_settings: Optional[dict] = None,
     ):
         self._embedding = embedding
         self._embedding_type = embedding_type
@@ -36,6 +37,11 @@ class ChromaBackend(VectorStoreBackend):
         self._allow_legacy_collections = allow_legacy_collections
         self._instances: dict[str, Chroma] = {}
         self._validated_collections: set[str] = set()
+
+        # Hybrid search config
+        self._hybrid_enabled = bool(hybrid_settings and hybrid_settings.get("enabled", False))
+        self._hybrid_rrf_k = int(hybrid_settings.get("rrf_k", 60)) if hybrid_settings else 60
+        self._bm25_indexes: dict = {}  # collection_name -> BM25Index, lazy-loaded
 
         # Direct chromadb client for metadata queries (list/inspect without mutation)
         if persist_directory:
@@ -123,6 +129,36 @@ class ChromaBackend(VectorStoreBackend):
         except Exception:
             return False
 
+    def _get_bm25_index(self, collection_name: str):
+        """Lazy-load or create BM25Index for a collection."""
+        if collection_name in self._bm25_indexes:
+            return self._bm25_indexes[collection_name]
+
+        from src.rag.bm25_index import BM25Index
+
+        if self._persist_directory:
+            pkl_path = f"{self._persist_directory}/.bm25_{collection_name}.pkl"
+            idx = BM25Index.load(pkl_path)
+        else:
+            idx = BM25Index(persist_path=None)
+
+        # Rebuild from Chroma if index is empty but collection has data
+        if idx.size == 0:
+            try:
+                collection = self._client.get_collection(collection_name)
+                count = collection.count()
+                if count > 0:
+                    results = collection.get(limit=count, include=["documents"])
+                    doc_ids = results.get("ids") or []
+                    docs = results.get("documents") or []
+                    idx.rebuild(doc_ids, docs)
+                    idx.save()
+            except Exception:
+                pass
+
+        self._bm25_indexes[collection_name] = idx
+        return idx
+
     def store(self, documents: list[Document], collection_name: str) -> list[str]:
         exists = self._collection_exists(collection_name)
         db = self._get_or_create(collection_name)
@@ -131,6 +167,13 @@ class ChromaBackend(VectorStoreBackend):
         self._set_provenance(collection_name)
         ids = db.add_documents(documents=documents)
         logger.info(f"Stored {len(ids)} documents in collection '{collection_name}'")
+
+        # Update BM25 side-index
+        if self._hybrid_enabled:
+            bm25 = self._get_bm25_index(collection_name)
+            bm25.add(ids, [doc.page_content for doc in documents])
+            bm25.save()
+
         return ids
 
     def search(
@@ -153,14 +196,57 @@ class ChromaBackend(VectorStoreBackend):
         collection_name: str,
         k: int = 5,
     ) -> list[Document]:
-        # Chroma does not support native hybrid search; fall back to dense
-        logger.debug("Chroma does not support hybrid search; falling back to dense search")
-        return self.search(query, collection_name, k)
+        if not self._hybrid_enabled:
+            return self.search(query, collection_name, k)
+
+        try:
+            self._client.get_collection(collection_name)
+        except Exception:
+            return []
+        self._validate_embedding(collection_name)
+
+        # Dense search: k*2 candidates
+        db = self._get_or_create(collection_name)
+        dense_results = db.similarity_search(query, k=k * 2)
+
+        # BM25 search: k*2 candidates
+        bm25 = self._get_bm25_index(collection_name)
+        bm25_hits = bm25.search(query, k=k * 2)
+
+        if not bm25_hits:
+            return dense_results[:k]
+
+        # Look up full documents from Chroma for BM25 results
+        bm25_ids = [doc_id for doc_id, _ in bm25_hits]
+        collection = self._client.get_collection(collection_name)
+        bm25_raw = collection.get(ids=bm25_ids, include=["documents", "metadatas"])
+
+        sparse_results = []
+        raw_ids = bm25_raw.get("ids") or []
+        raw_docs = bm25_raw.get("documents") or []
+        raw_metas = bm25_raw.get("metadatas") or []
+        for doc_id, text, meta in zip(raw_ids, raw_docs, raw_metas):
+            m = dict(meta or {})
+            m["id"] = doc_id
+            sparse_results.append(Document(page_content=text or "", metadata=m))
+
+        # Tag dense results with their Chroma IDs for fusion matching
+        # Chroma similarity_search doesn't return IDs in metadata, so we
+        # rely on content matching only for dense side (IDs are on sparse side)
+
+        from src.rag.fusion import rrf_fuse
+
+        fused = rrf_fuse(dense_results, sparse_results, k=self._hybrid_rrf_k, top_n=k)
+        return fused
 
     def delete(self, ids: list[str], collection_name: str) -> None:
         db = self._get_or_create(collection_name)
         db.delete(ids=ids)
         logger.info(f"Deleted {len(ids)} documents from collection '{collection_name}'")
+
+        if self._hybrid_enabled and collection_name in self._bm25_indexes:
+            self._bm25_indexes[collection_name].delete(ids)
+            self._bm25_indexes[collection_name].save()
 
     def get_collection_info(self, collection_name: str) -> dict:
         """Read-only collection inspection. Does not create collections that don't exist."""
