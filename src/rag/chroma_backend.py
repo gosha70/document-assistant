@@ -205,9 +205,25 @@ class ChromaBackend(VectorStoreBackend):
             return []
         self._validate_embedding(collection_name)
 
-        # Dense search: k*2 candidates
-        db = self._get_or_create(collection_name)
-        dense_results = db.similarity_search(query, k=k * 2)
+        # Dense search via raw chromadb client to get IDs back
+        collection = self._client.get_collection(collection_name)
+        lc_emb = self._embedding.get_langchain_embeddings()
+        query_embedding = lc_emb.embed_query(query)
+        dense_raw = collection.query(
+            query_embeddings=[query_embedding],
+            n_results=k * 2,
+            include=["documents", "metadatas"],
+        )
+
+        dense_results = []
+        for doc_id, text, meta in zip(
+            dense_raw.get("ids", [[]])[0],
+            dense_raw.get("documents", [[]])[0],
+            dense_raw.get("metadatas", [[]])[0],
+        ):
+            m = dict(meta or {})
+            m["id"] = doc_id
+            dense_results.append(Document(page_content=text or "", metadata=m))
 
         # BM25 search: k*2 candidates
         bm25 = self._get_bm25_index(collection_name)
@@ -218,7 +234,6 @@ class ChromaBackend(VectorStoreBackend):
 
         # Look up full documents from Chroma for BM25 results
         bm25_ids = [doc_id for doc_id, _ in bm25_hits]
-        collection = self._client.get_collection(collection_name)
         bm25_raw = collection.get(ids=bm25_ids, include=["documents", "metadatas"])
 
         sparse_results = []
@@ -229,10 +244,6 @@ class ChromaBackend(VectorStoreBackend):
             m = dict(meta or {})
             m["id"] = doc_id
             sparse_results.append(Document(page_content=text or "", metadata=m))
-
-        # Tag dense results with their Chroma IDs for fusion matching
-        # Chroma similarity_search doesn't return IDs in metadata, so we
-        # rely on content matching only for dense side (IDs are on sparse side)
 
         from src.rag.fusion import rrf_fuse
 

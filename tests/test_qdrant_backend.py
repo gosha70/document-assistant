@@ -398,6 +398,114 @@ class TestProvenance:
         assert backend.count("test_col") == 5
 
 
+class TestIDContract:
+    """Verify that search results include metadata["id"] for fusion/dedup."""
+
+    def test_search_returns_id_in_metadata(self):
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = True
+        mock_client.get_collection.return_value = _make_collection_info(vector_size=4)
+        mock_client.retrieve.return_value = []
+
+        mock_point = MagicMock()
+        mock_point.id = "abc-123"
+        mock_point.payload = {"page_content": "test doc", "metadata": {"source": "a.txt"}}
+        mock_result = MagicMock()
+        mock_result.points = [mock_point]
+        mock_client.query_points.return_value = mock_result
+
+        backend = _make_backend(mock_client)
+        results = backend.search("query", "test_col", k=5)
+
+        assert len(results) == 1
+        assert results[0].metadata["id"] == "abc-123"
+
+    def test_hybrid_search_returns_id_in_metadata(self):
+        """Hybrid falls back to dense for legacy collections; verify ID still present."""
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = True
+        mock_client.get_collection.return_value = _make_collection_info(vector_size=4)
+        mock_client.retrieve.return_value = []
+
+        mock_point = MagicMock()
+        mock_point.id = "def-456"
+        mock_point.payload = {"page_content": "hybrid doc", "metadata": {"source": "b.txt"}}
+        mock_result = MagicMock()
+        mock_result.points = [mock_point]
+        mock_client.query_points.return_value = mock_result
+
+        backend = _make_backend(mock_client)
+        results = backend.hybrid_search("query", "test_col", k=5)
+
+        assert len(results) == 1
+        assert results[0].metadata["id"] == "def-456"
+
+
+class TestSparseVocabRoundTrip:
+    """Verify the shared-vocabulary design: store docs, read vocab back."""
+
+    def test_store_and_load_vocab(self):
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = False
+        mock_client.retrieve.return_value = []
+
+        emb = _make_embedding_mock()
+        with patch("qdrant_client.QdrantClient", return_value=mock_client):
+            from src.rag.qdrant_backend import QdrantBackend
+
+            backend = QdrantBackend(
+                embedding=emb,
+                url="http://localhost:6333",
+                hybrid_settings={"enabled": True, "rrf_k": 60},
+            )
+
+        docs = [
+            Document(page_content="machine learning models", metadata={"source": "a.txt"}),
+            Document(page_content="deep neural networks", metadata={"source": "b.txt"}),
+        ]
+        emb.embed_documents.return_value = [[0.1] * 4, [0.2] * 4]
+        backend.store(docs, "hybrid_col")
+
+        # Find the upsert call that wrote the sparse vocab
+        from src.rag.qdrant_backend import _SPARSE_VOCAB_POINT_ID
+
+        vocab_calls = [
+            call
+            for call in mock_client.upsert.call_args_list
+            if any(
+                getattr(p, "id", None) == _SPARSE_VOCAB_POINT_ID
+                for p in call.kwargs.get("points", call.args[0] if call.args else [])
+                if hasattr(p, "id")
+            )
+        ]
+        assert len(vocab_calls) >= 1, "Sparse vocab point should be upserted"
+
+        # Extract the vocab from the last upsert
+        last_call = vocab_calls[-1]
+        points = last_call.kwargs.get("points", last_call.args[0] if last_call.args else [])
+        vocab_point = [p for p in points if getattr(p, "id", None) == _SPARSE_VOCAB_POINT_ID][0]
+        stored_vocab = vocab_point.payload["vocab"]
+
+        # Verify token mappings are present
+        assert "machine" in stored_vocab
+        assert "learning" in stored_vocab
+        assert "deep" in stored_vocab
+        assert "neural" in stored_vocab
+        assert "networks" in stored_vocab
+        assert "models" in stored_vocab
+
+        # Verify a second instance can reload the vocab and produce the same encodings
+        from src.rag.sparse import TokenEncoder
+
+        enc1 = backend._get_token_encoder("hybrid_col")
+        enc2 = TokenEncoder(vocab=stored_vocab)
+
+        sv1 = enc1.encode_query_tf("machine learning")
+        sv2 = enc2.encode_query_tf("machine learning")
+        assert sv1.indices == sv2.indices
+        assert sv1.values == sv2.values
+
+
 class TestBackendFactory:
     def test_qdrant_backend_wired_in_factory(self):
         from src.api.main import _create_backend

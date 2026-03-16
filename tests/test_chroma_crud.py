@@ -1,4 +1,5 @@
 """Tests for Chroma vectorstore CRUD operations using a temp directory."""
+
 import os
 import logging
 import shutil
@@ -26,7 +27,9 @@ class TestChromaCRUD:
     @pytest.fixture
     def sample_docs(self):
         return [
-            Document(page_content="The quick brown fox jumps over the lazy dog.", metadata={"source": "test.txt", "page": 0}),
+            Document(
+                page_content="The quick brown fox jumps over the lazy dog.", metadata={"source": "test.txt", "page": 0}
+            ),
             Document(page_content="Python is a programming language.", metadata={"source": "test2.txt", "page": 0}),
         ]
 
@@ -120,6 +123,68 @@ class TestChromaCRUD:
         db.delete(ids=[ids[0]])
         remaining = db.get()["ids"]
         assert len(remaining) == 1
+
+
+class TestChromaIDContract:
+    """Verify that hybrid search results include document IDs on both sides."""
+
+    def test_all_hybrid_results_have_ids(self, tmp_dir):
+        """Every document from hybrid_search must have metadata['id']."""
+        client = chromadb.PersistentClient(path=tmp_dir, settings=CHROMA_SETTINGS)
+        col = client.create_collection("id_test")
+        col.add(
+            ids=["doc-1", "doc-2"],
+            documents=["first document about cats", "second document about dogs"],
+            embeddings=[[0.1] * 384, [0.9] * 384],
+            metadatas=[{"source": "a.txt"}, {"source": "b.txt"}],
+        )
+        del client
+
+        mock_emb = MagicMock()
+        mock_emb.model_name = "test"
+        lc_emb = MagicMock()
+        lc_emb.embed_query.return_value = [0.1] * 384
+        mock_emb.get_langchain_embeddings.return_value = lc_emb
+
+        backend = ChromaBackend(embedding=mock_emb, persist_directory=tmp_dir, allow_legacy_collections=True)
+        backend._hybrid_enabled = True
+        results = backend.hybrid_search("cats", collection_name="id_test", k=2)
+
+        assert len(results) >= 1
+        for doc in results:
+            assert "id" in doc.metadata, f"Document missing metadata['id']: {doc.metadata}"
+
+    def test_overlapping_dense_and_sparse_hits_fuse(self, tmp_dir):
+        """A document appearing in both dense and BM25 results must not duplicate."""
+        client = chromadb.PersistentClient(path=tmp_dir, settings=CHROMA_SETTINGS)
+        col = client.create_collection("fuse_test")
+        # doc-1 has embedding very close to query and contains the query keyword
+        # so it should appear in both dense and BM25 results
+        col.add(
+            ids=["doc-1", "doc-2", "doc-3"],
+            documents=[
+                "cats are wonderful pets",
+                "dogs are loyal companions",
+                "birds can fly high",
+            ],
+            embeddings=[[0.1] * 384, [0.5] * 384, [0.9] * 384],
+            metadatas=[{"source": "a.txt"}, {"source": "b.txt"}, {"source": "c.txt"}],
+        )
+        del client
+
+        mock_emb = MagicMock()
+        mock_emb.model_name = "test"
+        lc_emb = MagicMock()
+        lc_emb.embed_query.return_value = [0.1] * 384  # closest to doc-1
+        mock_emb.get_langchain_embeddings.return_value = lc_emb
+
+        backend = ChromaBackend(embedding=mock_emb, persist_directory=tmp_dir, allow_legacy_collections=True)
+        backend._hybrid_enabled = True
+        results = backend.hybrid_search("cats", collection_name="fuse_test", k=3)
+
+        # doc-1 should appear exactly once, not duplicated across dense/sparse
+        ids = [doc.metadata["id"] for doc in results]
+        assert ids == list(dict.fromkeys(ids)), f"Duplicate IDs in fused results: {ids}"
 
 
 class TestCrossVersionPersistence:
