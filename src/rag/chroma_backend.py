@@ -275,6 +275,94 @@ class ChromaBackend(VectorStoreBackend):
         fused = rrf_fuse(dense_results, sparse_results, k=self._hybrid_rrf_k, top_n=k)
         return fused
 
+    def search_by_vector(
+        self,
+        embedding: list[float],
+        collection_name: str,
+        k: int = 5,
+    ) -> list[Document]:
+        try:
+            self._client.get_collection(collection_name)
+        except Exception:
+            return []
+        self._validate_embedding(collection_name)
+
+        collection = self._client.get_collection(collection_name)
+        raw = collection.query(
+            query_embeddings=[embedding],
+            n_results=k,
+            include=["documents", "metadatas"],
+        )
+
+        results = []
+        for doc_id, text, meta in zip(
+            raw.get("ids", [[]])[0],
+            raw.get("documents", [[]])[0],
+            raw.get("metadatas", [[]])[0],
+        ):
+            m = dict(meta or {})
+            m["id"] = doc_id
+            results.append(Document(page_content=text or "", metadata=m))
+        return results
+
+    def hybrid_search_by_vector(
+        self,
+        dense_embedding: list[float],
+        query_text: str,
+        collection_name: str,
+        k: int = 5,
+    ) -> list[Document]:
+        if not self._hybrid_enabled:
+            return self.search_by_vector(dense_embedding, collection_name, k)
+
+        try:
+            self._client.get_collection(collection_name)
+        except Exception:
+            return []
+        self._validate_embedding(collection_name)
+
+        # Dense search with pre-computed embedding
+        collection = self._client.get_collection(collection_name)
+        dense_raw = collection.query(
+            query_embeddings=[dense_embedding],
+            n_results=k * 2,
+            include=["documents", "metadatas"],
+        )
+
+        dense_results = []
+        for doc_id, text, meta in zip(
+            dense_raw.get("ids", [[]])[0],
+            dense_raw.get("documents", [[]])[0],
+            dense_raw.get("metadatas", [[]])[0],
+        ):
+            m = dict(meta or {})
+            m["id"] = doc_id
+            dense_results.append(Document(page_content=text or "", metadata=m))
+
+        # BM25 search with original query text
+        bm25 = self._get_bm25_index(collection_name)
+        bm25_hits = bm25.search(query_text, k=k * 2)
+
+        if not bm25_hits:
+            return dense_results[:k]
+
+        bm25_ids = [doc_id for doc_id, _ in bm25_hits]
+        bm25_raw = collection.get(ids=bm25_ids, include=["documents", "metadatas"])
+
+        sparse_results = []
+        for doc_id, text, meta in zip(
+            bm25_raw.get("ids") or [],
+            bm25_raw.get("documents") or [],
+            bm25_raw.get("metadatas") or [],
+        ):
+            m = dict(meta or {})
+            m["id"] = doc_id
+            sparse_results.append(Document(page_content=text or "", metadata=m))
+
+        from src.rag.fusion import rrf_fuse
+
+        return rrf_fuse(dense_results, sparse_results, k=self._hybrid_rrf_k, top_n=k)
+
     def delete(self, ids: list[str], collection_name: str) -> None:
         db = self._get_or_create(collection_name)
         db.delete(ids=ids)

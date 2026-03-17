@@ -41,6 +41,17 @@ class TestSettingsFromYaml:
         assert s.chunking.contextual.max_context_tokens == 128
         assert s.chunking.contextual.document_summary_tokens == 256
 
+    def test_query_pipeline_defaults(self):
+        s = get_settings()
+        qp = s.query_pipeline
+        assert qp.decomposition_enabled is False
+        assert qp.hyde_enabled is False
+        assert qp.corrective_retrieval_enabled is False
+        assert qp.corrective_retrieval_threshold == 0.4
+        assert qp.verification_enabled is False
+        assert qp.hyde_cache_size == 100
+        assert qp.max_sub_queries == 5
+
     def test_system_prompt_loaded(self):
         s = get_settings()
         assert "document assistant" in s.system_prompt

@@ -28,6 +28,7 @@ class CrossEncoderReranker(Reranker):
 
     def __init__(self, model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"):
         from sentence_transformers import CrossEncoder
+
         self._model_name = model_name
         self._model = CrossEncoder(model_name)
         logger.info(f"Loaded CrossEncoder reranker: {model_name}")
@@ -42,6 +43,10 @@ class CrossEncoderReranker(Reranker):
 
         pairs = [(query, doc.page_content) for doc in documents]
         scores = self._model.predict(pairs)
+
+        # Store reranker scores in document metadata for confidence scoring
+        for score, doc in zip(scores, documents):
+            doc.metadata["reranker_score"] = float(score)
 
         scored_docs = sorted(
             zip(scores, documents),

@@ -18,6 +18,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     sources: list[SourceCitation]
+    metadata: Optional[dict] = None
 
 
 class IngestRequest(BaseModel):

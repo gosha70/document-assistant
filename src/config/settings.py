@@ -135,6 +135,16 @@ class AppSettings(BaseModel):
     debug: bool
 
 
+class QueryPipelineSettings(BaseModel):
+    decomposition_enabled: bool = False
+    hyde_enabled: bool = False
+    corrective_retrieval_enabled: bool = False
+    corrective_retrieval_threshold: float = 0.4
+    verification_enabled: bool = False
+    hyde_cache_size: int = 100
+    max_sub_queries: int = 5
+
+
 class Settings(BaseModel):
     app: AppSettings
     embedding: EmbeddingSettings
@@ -150,6 +160,7 @@ class Settings(BaseModel):
     alerting: AlertingSettings
     reporting: ReportingSettings
     system_prompt: str
+    query_pipeline: QueryPipelineSettings = QueryPipelineSettings()
 
 
 def get_settings(override_path: Optional[str] = None) -> Settings:

@@ -294,6 +294,56 @@
         "Source citations are extracted from document metadata, including the source filename, page number, and a 200-character excerpt of the chunk content."
       ],
       "type": "negative"
+    },
+    {
+      "question": "What embedding model is used, what is its dimensionality, and which vector store backend is the default?",
+      "ground_truth": "The default embedding model is hkunlp/instructor-large producing 768-dimensional embeddings, and the default vector store backend is Chroma.",
+      "contexts": [
+        "The embedding pipeline uses the InstructorEmbedding library with the hkunlp/instructor-large model by default. This model produces 768-dimensional embeddings and supports instruction-based encoding for improved retrieval quality.",
+        "The vectorstore backend is configurable via the vectorstore.backend setting. Supported values are 'chroma' for ChromaDB and 'qdrant' for Qdrant. Chroma is the default for local development."
+      ],
+      "type": "decomposition"
+    },
+    {
+      "question": "How does the chunking configuration relate to the reranker output, and what is the default for each?",
+      "ground_truth": "The default chunk size is 512 characters with 50-character overlap, and the reranker returns the top 5 documents by default after rescoring the initial retrieval candidates.",
+      "contexts": [
+        "The RecursiveCharacterTextSplitter is configured with a default chunk size of 512 characters and a chunk overlap of 50 characters. These values can be adjusted in the chunking configuration section of defaults.yaml.",
+        "The reranker receives the top 20 candidates from the retrieval stage and returns the 5 most relevant documents (configurable via reranker.top_k). If the reranker is disabled, the system returns the top-k results from the initial retrieval without rescoring."
+      ],
+      "type": "decomposition"
+    },
+    {
+      "question": "Compare the authentication and rate limiting features, and explain how telemetry works alongside them.",
+      "ground_truth": "Authentication uses admin/user tokens, rate limiting restricts requests per window, and telemetry records LLM call metrics. All three are independently configurable middleware disabled by default.",
+      "contexts": [
+        "Authentication is controlled via the auth settings. When enabled, requests must include a valid token in the Authorization header. Admin and user tokens provide different access levels.",
+        "Rate limiting can be enabled to restrict the number of requests per time window. This helps prevent abuse but does not provide tenant-level isolation.",
+        "The telemetry system is controlled by two settings: telemetry.enabled (master switch) and telemetry.log_llm_calls (per-call logging). When both are true, each LLM invocation records latency, input prompt length, and output length.",
+        "Both features are implemented as FastAPI middleware and are disabled by default. They can be enabled independently via their respective configuration sections."
+      ],
+      "type": "decomposition"
+    },
+    {
+      "question": "What are the alerting thresholds, and how does the reporting system use them?",
+      "ground_truth": "The alerting thresholds are: 10% error rate, 1024 MB RSS, 5 ingest errors, 10 retrieval-no-source events within a 3600s window. The reporting system periodically snapshots these metrics for the monitoring console.",
+      "contexts": [
+        "The alerting system monitors several metrics: error_rate_threshold (0.10, i.e., 10%), memory_rss_mb_threshold (1024 MB), ingest_error_threshold (5 errors), and retrieval_no_source_threshold (10 events). All thresholds are evaluated within a configurable time window.",
+        "The default alerting window is 3600 seconds (1 hour). When any threshold is exceeded, the alerting module triggers a warning that can be consumed by the monitoring console.",
+        "Metrics are collected via get_metrics_collector(), which provides methods like record_llm_call(latency, input_len, output_len). The collector aggregates metrics for the reporting module."
+      ],
+      "type": "decomposition"
+    },
+    {
+      "question": "What LLM backends are available, and how does the system handle the case where the LLM fails to initialize?",
+      "ground_truth": "Three backends are supported: legacy (local GGUF), openai (API), and ollama (local). If LLM init fails, the system logs a warning and /chat returns 503 until an LLM becomes available.",
+      "contexts": [
+        "The legacy LLM backend uses llama-cpp-python to load quantized model files (GGUF, GPTQ, AWQ) from the local filesystem. It supports fully offline operation but requires significant RAM and optional GPU resources.",
+        "The OpenAI backend uses langchain's ChatOpenAI client, which supports both the official OpenAI API and compatible endpoints (e.g., local vLLM or Ollama servers) via the base_url configuration.",
+        "A third backend option, 'ollama', is a convenience wrapper that sets the base_url to http://localhost:11434/v1 by default for local Ollama deployments.",
+        "If LLM initialization fails during startup, the system logs a warning and continues running. The /chat endpoint returns a 503 Service Unavailable error until an LLM is successfully initialized."
+      ],
+      "type": "decomposition"
     }
   ]
 }

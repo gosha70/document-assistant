@@ -42,10 +42,11 @@ def _create_embedding(settings):
         raise ValueError(f"Unknown embedding type: '{embedding_type}'. Supported: instructor, huggingface")
 
 
-def _create_backend(settings):
+def _create_backend(settings, embedding=None):
     """Create the vector store backend based on config."""
     backend_type = settings.vectorstore.backend
-    embedding = _create_embedding(settings)
+    if embedding is None:
+        embedding = _create_embedding(settings)
 
     hybrid_cfg = {
         "enabled": settings.vectorstore.hybrid.enabled,
@@ -179,10 +180,14 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     logger.info(f"Starting {settings.app.name}")
 
-    from src.api.deps import set_vectorstore_backend, set_llm, set_reranker
+    from src.api.deps import set_vectorstore_backend, set_llm, set_reranker, set_embedding
 
-    # Initialise vector store backend (config-driven)
-    backend = _create_backend(settings)
+    # Initialise embedding adapter (needed by orchestrator for HyDE)
+    embedding = _create_embedding(settings)
+    set_embedding(embedding)
+
+    # Initialise vector store backend (config-driven, reuse embedding)
+    backend = _create_backend(settings, embedding=embedding)
     set_vectorstore_backend(backend)
     logger.info(f"Vector store backend ready: {settings.vectorstore.backend}")
 

@@ -28,6 +28,28 @@ class VectorStoreBackend(ABC):
     ) -> list[Document]:
         """Combined dense + sparse search. Falls back to dense-only if not supported."""
 
+    def search_by_vector(
+        self,
+        embedding: list[float],
+        collection_name: str,
+        k: int = 5,
+    ) -> list[Document]:
+        """Dense-only search using a pre-computed embedding vector."""
+        raise NotImplementedError("search_by_vector not implemented for this backend")
+
+    def hybrid_search_by_vector(
+        self,
+        dense_embedding: list[float],
+        query_text: str,
+        collection_name: str,
+        k: int = 5,
+    ) -> list[Document]:
+        """Hybrid search: dense uses pre-computed vector, sparse uses query_text.
+
+        Falls back to search_by_vector if not overridden.
+        """
+        return self.search_by_vector(embedding=dense_embedding, collection_name=collection_name, k=k)
+
     @abstractmethod
     def delete(self, ids: list[str], collection_name: str) -> None:
         """Delete documents by ID."""

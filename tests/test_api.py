@@ -1,4 +1,5 @@
 """Tests for the FastAPI application routes."""
+
 import pytest
 from unittest.mock import MagicMock, patch
 from contextlib import asynccontextmanager
@@ -27,7 +28,9 @@ def _create_test_app():
 
     settings = get_settings()
     app = FastAPI(title=settings.app.name, lifespan=noop_lifespan)
-    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+    app.add_middleware(
+        CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+    )
     app.add_middleware(AuthMiddleware)
     app.add_middleware(RateLimitMiddleware)
     app.add_middleware(TelemetryMiddleware)
@@ -48,10 +51,20 @@ def mock_backend():
     backend = MagicMock(spec=VectorStoreBackend)
     backend.count.return_value = 42
     backend.list_collections.return_value = [
-        {"name": "test_col", "backend": "chroma", "document_count": 42, "persist_directory": "/tmp", "embedding_model": "test"}
+        {
+            "name": "test_col",
+            "backend": "chroma",
+            "document_count": 42,
+            "persist_directory": "/tmp",
+            "embedding_model": "test",
+        }
     ]
     backend.get_collection_info.return_value = {
-        "name": "test_col", "backend": "chroma", "document_count": 42, "persist_directory": "/tmp", "embedding_model": "test"
+        "name": "test_col",
+        "backend": "chroma",
+        "document_count": 42,
+        "persist_directory": "/tmp",
+        "embedding_model": "test",
     }
     backend.search.return_value = []
     backend.hybrid_search.return_value = []
@@ -62,16 +75,19 @@ def mock_backend():
 @pytest.fixture
 def client(mock_backend):
     from src.utils.jobs import reset_jobs
+
     app = _create_test_app()
     deps._backend = mock_backend
     deps._llm = None
     deps._reranker = None
+    deps._embedding = None
     reset_jobs()
     with TestClient(app) as c:
         yield c
     deps._backend = None
     deps._llm = None
     deps._reranker = None
+    deps._embedding = None
 
 
 class TestHealthEndpoint:
@@ -100,6 +116,7 @@ class TestChatEndpoint:
         mock_backend.hybrid_search.return_value = []
         mock_llm = MagicMock()
         deps._llm = mock_llm
+        deps._embedding = MagicMock()
         resp = client.post("/chat", json={"question": "What is Python?"})
         assert resp.status_code == 200
         data = resp.json()
@@ -115,6 +132,7 @@ class TestChatEndpoint:
         mock_llm = MagicMock()
         mock_llm.invoke.return_value = "Python is a programming language."
         deps._llm = mock_llm
+        deps._embedding = MagicMock()
 
         resp = client.post("/chat", json={"question": "What is Python?"})
         assert resp.status_code == 200
@@ -138,6 +156,7 @@ class TestChatStreamEndpoint:
         mock_backend.hybrid_search.return_value = []
         mock_llm = MagicMock()
         deps._llm = mock_llm
+        deps._embedding = MagicMock()
         resp = client.post("/chat/stream", json={"question": "What is Python?"})
         assert resp.status_code == 200
         assert resp.headers["content-type"].startswith("text/event-stream")
@@ -157,6 +176,7 @@ class TestChatStreamEndpoint:
         if hasattr(mock_llm, "stream"):
             del mock_llm.stream
         deps._llm = mock_llm
+        deps._embedding = MagicMock()
 
         resp = client.post("/chat/stream", json={"question": "What is Python?"})
         assert resp.status_code == 200
@@ -243,7 +263,6 @@ class TestAdminEndpoints:
         assert "uptime_seconds" in data
         assert data["total_requests"] > 0
 
-
     def test_get_nonexistent_collection_returns_404(self, client, mock_backend):
         mock_backend.get_collection_info.side_effect = ValueError("Collection 'nope' not found")
         resp = client.get("/admin/collections/nope")
@@ -266,12 +285,14 @@ class TestBackendFactory:
 class TestLLMFactory:
     def test_openai_backend(self):
         import sys
+
         mock_module = MagicMock()
         mock_chat_cls = MagicMock()
         mock_module.ChatOpenAI = mock_chat_cls
         with patch.dict(sys.modules, {"langchain_openai": mock_module}):
             from importlib import reload
             import src.api.main as main_mod
+
             reload(main_mod)
 
             settings = MagicMock()
@@ -292,12 +313,14 @@ class TestLLMFactory:
 
     def test_ollama_backend_defaults(self):
         import sys
+
         mock_module = MagicMock()
         mock_chat_cls = MagicMock()
         mock_module.ChatOpenAI = mock_chat_cls
         with patch.dict(sys.modules, {"langchain_openai": mock_module}):
             from importlib import reload
             import src.api.main as main_mod
+
             reload(main_mod)
 
             settings = MagicMock()
@@ -369,6 +392,7 @@ class TestAuthMiddleware:
         mock_be.hybrid_search.return_value = []
         deps._backend = mock_be
         deps._llm = MagicMock()
+        deps._embedding = MagicMock()
 
         with patch("src.api.middleware.auth.get_settings") as mock_settings:
             mock_settings.return_value = self._make_auth_settings()
@@ -389,6 +413,7 @@ class TestAuthMiddleware:
         deps._backend = None
         deps._llm = None
         deps._reranker = None
+        deps._embedding = None
 
     def test_public_routes_always_open(self):
         app = _create_test_app()

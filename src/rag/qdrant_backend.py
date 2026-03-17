@@ -416,6 +416,99 @@ class QdrantBackend(VectorStoreBackend):
                 break
         return documents
 
+    def search_by_vector(
+        self,
+        embedding: list[float],
+        collection_name: str,
+        k: int = 5,
+    ) -> list[Document]:
+        if not self._client.collection_exists(collection_name):
+            return []
+
+        self._validate_collection(collection_name)
+        fmt = self._collection_vector_format.get(collection_name, "single")
+
+        if fmt == "named":
+            from qdrant_client.models import NamedVector
+
+            query_arg = NamedVector(name="dense", vector=embedding)
+        else:
+            query_arg = embedding
+
+        results = self._client.query_points(
+            collection_name=collection_name,
+            query=query_arg,
+            limit=k + 2,
+            with_payload=True,
+        )
+
+        documents = []
+        for point in results.points:
+            doc = self._point_to_document(point)
+            if doc is not None:
+                documents.append(doc)
+            if len(documents) >= k:
+                break
+        return documents
+
+    def hybrid_search_by_vector(
+        self,
+        dense_embedding: list[float],
+        query_text: str,
+        collection_name: str,
+        k: int = 5,
+    ) -> list[Document]:
+        if not self._client.collection_exists(collection_name):
+            return []
+
+        self._validate_collection(collection_name)
+        fmt = self._collection_vector_format.get(collection_name, "single")
+
+        if not self._hybrid_enabled or fmt != "named":
+            return self.search_by_vector(dense_embedding, collection_name, k)
+
+        from qdrant_client.models import Prefetch, Fusion, FusionQuery, NamedVector, NamedSparseVector
+        from qdrant_client.models import SparseVector as QdrantSparseVector
+
+        encoder = self._get_token_encoder(collection_name)
+        sparse_vec = encoder.encode_query_tf(query_text)
+
+        try:
+            results = self._client.query_points(
+                collection_name=collection_name,
+                prefetch=[
+                    Prefetch(
+                        query=NamedVector(name="dense", vector=dense_embedding),
+                        limit=k * 2,
+                    ),
+                    Prefetch(
+                        query=NamedSparseVector(
+                            name="sparse",
+                            vector=QdrantSparseVector(
+                                indices=sparse_vec.indices,
+                                values=sparse_vec.values,
+                            ),
+                        ),
+                        limit=k * 2,
+                    ),
+                ],
+                query=FusionQuery(fusion=Fusion.RRF),
+                limit=k + 2,
+                with_payload=True,
+            )
+        except Exception as e:
+            logger.warning(f"Qdrant hybrid_search_by_vector failed, falling back to dense: {e}")
+            return self.search_by_vector(dense_embedding, collection_name, k)
+
+        documents = []
+        for point in results.points:
+            doc = self._point_to_document(point)
+            if doc is not None:
+                documents.append(doc)
+            if len(documents) >= k:
+                break
+        return documents
+
     def delete(self, ids: list[str], collection_name: str) -> None:
         from qdrant_client.models import PointIdsList
 

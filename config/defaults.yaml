@@ -104,6 +104,15 @@ reporting:
   interval_seconds: 3600
   max_snapshots: 24
 
+query_pipeline:
+  decomposition_enabled: false
+  hyde_enabled: false
+  corrective_retrieval_enabled: false
+  corrective_retrieval_threshold: 0.4
+  verification_enabled: false
+  hyde_cache_size: 100
+  max_sub_queries: 5
+
 system_prompt: >
   You are a document assistant. Answer questions using ONLY the provided context.
   Rules:
