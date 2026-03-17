@@ -1,0 +1,11 @@
+name: hyde
+description: Generate a hypothetical document that answers the question
+input_variables:
+  - question
+templates:
+  generic: |
+    Write a short passage (3-5 sentences) that would directly answer the following question. Write it as if it were an excerpt from an authoritative document. Do not include any preamble or meta-commentary — just the passage itself.
+
+    Question: {question}
+
+    Passage:

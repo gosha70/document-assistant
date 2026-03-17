@@ -1,0 +1,16 @@
+name: query_decomposition
+description: Decompose a complex question into independent sub-queries
+input_variables:
+  - question
+templates:
+  generic: |
+    Analyze the following question and determine if it contains multiple independent parts that should be answered separately.
+
+    If the question has multiple parts, decompose it into a JSON list of independent sub-queries. Each sub-query should be self-contained and answerable on its own.
+    If the question is simple and does not need decomposition, return a JSON list containing only the original question.
+
+    Return ONLY a valid JSON array of strings, with no other text.
+
+    Question: {question}
+
+    JSON array:

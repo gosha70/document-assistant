@@ -1,0 +1,24 @@
+name: verification
+description: Verify that an answer is grounded in the provided source documents
+input_variables:
+  - answer
+  - sources
+  - question
+templates:
+  generic: |
+    You are a fact-checking assistant. Given a question, an answer, and source excerpts, verify that every factual claim in the answer is supported by the sources.
+
+    Question: {question}
+
+    Answer: {answer}
+
+    Source excerpts:
+    {sources}
+
+    Check each factual claim in the answer against the source excerpts. Return a JSON object with:
+    - "verified": true if ALL claims are supported, false otherwise
+    - "unsupported_claims": a list of strings describing any claims not supported by the sources (empty list if all verified)
+
+    Return ONLY valid JSON, with no other text.
+
+    JSON:

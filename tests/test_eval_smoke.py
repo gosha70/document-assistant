@@ -1,7 +1,9 @@
 """Eval smoke test — lightweight retrieval sanity check with in-memory Chroma."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from langchain_core.documents import Document
+
+from eval.run_eval import run_retrieval_eval
 
 
 class TestEvalSmoke:
@@ -99,3 +101,76 @@ class TestEvalSmoke:
         assert len(results) > 0
         retrieved_texts = [r.page_content for r in results]
         assert len(retrieved_texts) == len(set(retrieved_texts)), "Should not have exact duplicates"
+
+
+class TestEvalOrchestratorBranch:
+    """Verify run_retrieval_eval uses orchestrator._retrieve when provided."""
+
+    def test_orchestrator_branch_calls_retrieve(self):
+        """When an orchestrator is passed, retrieval goes through it, not the raw retriever."""
+        docs = [Document(page_content="The answer is 42.", metadata={"id": "1"})]
+        orchestrator = MagicMock()
+        orchestrator._retrieve.return_value = docs
+
+        retriever = MagicMock()
+        retriever.retrieve.return_value = docs
+
+        samples = [
+            {
+                "question": "What is the answer?",
+                "ground_truth": "42",
+                "contexts": ["The answer is 42."],
+                "type": "factual",
+            },
+        ]
+
+        run_retrieval_eval(samples, retriever, k=5, orchestrator=orchestrator)
+
+        orchestrator._retrieve.assert_called_once()
+        retriever.retrieve.assert_not_called()
+
+    def test_orchestrator_stats_aggregation(self):
+        """orchestrator_stats counts decomposition, hyde, and corrective usage."""
+        docs = [Document(page_content="text", metadata={"id": "1"})]
+
+        call_count = [0]
+
+        def fake_retrieve(question, meta):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                meta["decomposed_queries"] = ["sub1", "sub2"]
+                meta["hyde_used"] = True
+            elif call_count[0] == 2:
+                meta["corrective_triggered"] = True
+            # third sample: no orchestrator metadata flags
+            return docs
+
+        orchestrator = MagicMock()
+        orchestrator._retrieve.side_effect = fake_retrieve
+
+        samples = [
+            {"question": "q1", "contexts": ["text"], "type": "factual"},
+            {"question": "q2", "contexts": ["text"], "type": "factual"},
+            {"question": "q3", "contexts": ["text"], "type": "factual"},
+        ]
+
+        result = run_retrieval_eval(samples, MagicMock(), k=5, orchestrator=orchestrator)
+
+        assert "orchestrator_stats" in result
+        stats = result["orchestrator_stats"]
+        assert stats["decomposition_count"] == 1
+        assert stats["hyde_used_count"] == 1
+        assert stats["corrective_triggered_count"] == 1
+
+    def test_no_orchestrator_no_stats(self):
+        """Without orchestrator, orchestrator_stats should not be in result."""
+        retriever = MagicMock()
+        retriever.retrieve.return_value = []
+
+        samples = [
+            {"question": "q1", "contexts": ["text"], "type": "factual"},
+        ]
+
+        result = run_retrieval_eval(samples, retriever, k=5)
+
+        assert "orchestrator_stats" not in result
