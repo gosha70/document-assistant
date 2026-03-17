@@ -39,11 +39,18 @@ class RerankerSettings(BaseModel):
     top_k: int
 
 
+class ContextualChunkSettings(BaseModel):
+    enabled: bool = False
+    max_context_tokens: int = 128
+    document_summary_tokens: int = 256
+
+
 class ChunkingSettings(BaseModel):
     chunk_size: int
     chunk_overlap: int
     tokenizer: str
     batch_size: int
+    contextual: ContextualChunkSettings = ContextualChunkSettings()
 
 
 class ModelSettings(BaseModel):

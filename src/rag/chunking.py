@@ -36,7 +36,7 @@ def _parse_tokenizer(tokenizer_spec: str) -> tuple[str, str]:
     return backend, model
 
 
-def _get_tokenizer(tokenizer_spec: str):
+def get_tokenizer(tokenizer_spec: str):
     """Return a cached tokenizer object for the given spec."""
     with _tokenizer_cache_lock:
         if tokenizer_spec in _tokenizer_cache:
@@ -45,9 +45,11 @@ def _get_tokenizer(tokenizer_spec: str):
     backend, model = _parse_tokenizer(tokenizer_spec)
     if backend == "tiktoken":
         import tiktoken
+
         tokenizer = tiktoken.get_encoding(model)
     elif backend == "huggingface":
         from transformers import AutoTokenizer
+
         tokenizer = AutoTokenizer.from_pretrained(model)
     else:
         raise ValueError(f"Unknown tokenizer backend '{backend}'. Supported: tiktoken, huggingface")
@@ -59,7 +61,7 @@ def _get_tokenizer(tokenizer_spec: str):
 
 def count_tokens(text: str, tokenizer_spec: str) -> int:
     """Count tokens in text using the configured tokenizer (cached)."""
-    tokenizer = _get_tokenizer(tokenizer_spec)
+    tokenizer = get_tokenizer(tokenizer_spec)
     backend, _ = _parse_tokenizer(tokenizer_spec)
     if backend == "tiktoken":
         return len(tokenizer.encode(text))
@@ -103,7 +105,7 @@ def get_text_splitter(file_extension: str | None = None) -> TextSplitter:
             keep_separator=True,
         )
     elif backend == "huggingface":
-        hf_tokenizer = _get_tokenizer(settings.chunking.tokenizer)
+        hf_tokenizer = get_tokenizer(settings.chunking.tokenizer)
         return RecursiveCharacterTextSplitter.from_huggingface_tokenizer(
             hf_tokenizer,
             chunk_size=settings.chunking.chunk_size,
@@ -112,6 +114,4 @@ def get_text_splitter(file_extension: str | None = None) -> TextSplitter:
             keep_separator=True,
         )
     else:
-        raise ValueError(
-            f"Unknown tokenizer backend '{backend}'. Supported: tiktoken, huggingface"
-        )
+        raise ValueError(f"Unknown tokenizer backend '{backend}'. Supported: tiktoken, huggingface")

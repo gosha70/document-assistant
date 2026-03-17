@@ -267,7 +267,7 @@ class QdrantBackend(VectorStoreBackend):
 
         self._ensure_collection_for_write(collection_name)
         self._set_provenance(collection_name)
-        texts = [doc.page_content for doc in documents]
+        texts = [doc.metadata.get("embedding_text") or doc.page_content for doc in documents]
         vectors = self._embedding.embed_documents(texts)
         ids = [str(uuid.uuid4()) for _ in documents]
 

@@ -148,10 +148,13 @@ class ChromaBackend(VectorStoreBackend):
                 collection = self._client.get_collection(collection_name)
                 count = collection.count()
                 if count > 0:
-                    results = collection.get(limit=count, include=["documents"])
+                    results = collection.get(limit=count, include=["documents", "metadatas"])
                     doc_ids = results.get("ids") or []
                     docs = results.get("documents") or []
-                    idx.rebuild(doc_ids, docs)
+                    metas = results.get("metadatas") or []
+                    # Prefer embedding_text (contextual) over raw document text
+                    texts = [(meta or {}).get("embedding_text") or doc for doc, meta in zip(docs, metas)]
+                    idx.rebuild(doc_ids, texts)
                     idx.save()
             except Exception:
                 pass
@@ -165,13 +168,35 @@ class ChromaBackend(VectorStoreBackend):
         if exists:
             self._validate_embedding(collection_name)
         self._set_provenance(collection_name)
-        ids = db.add_documents(documents=documents)
+
+        has_augmented = any(doc.metadata.get("embedding_text") for doc in documents)
+
+        if has_augmented:
+            # Bypass LangChain wrapper: embed augmented text, store original
+            embedding_texts = [doc.metadata.get("embedding_text") or doc.page_content for doc in documents]
+            lc_emb = self._embedding.get_langchain_embeddings()
+            vectors = lc_emb.embed_documents(embedding_texts)
+
+            collection = self._client.get_or_create_collection(collection_name)
+            import uuid as _uuid
+
+            ids = [str(_uuid.uuid4()) for _ in documents]
+            collection.add(
+                ids=ids,
+                embeddings=vectors,
+                documents=[doc.page_content for doc in documents],
+                metadatas=[doc.metadata for doc in documents],
+            )
+        else:
+            ids = db.add_documents(documents=documents)
+
         logger.info(f"Stored {len(ids)} documents in collection '{collection_name}'")
 
-        # Update BM25 side-index
+        # Update BM25 side-index with augmented text for contextual BM25
         if self._hybrid_enabled:
+            bm25_texts = [doc.metadata.get("embedding_text") or doc.page_content for doc in documents]
             bm25 = self._get_bm25_index(collection_name)
-            bm25.add(ids, [doc.page_content for doc in documents])
+            bm25.add(ids, bm25_texts)
             bm25.save()
 
         return ids

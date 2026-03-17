@@ -35,8 +35,31 @@ def _load_and_split(file_path: str) -> list[Document]:
     if converter is None:
         return []
 
-    documents = converter.load_and_split_file(text_splitter=text_splitter, file_path=file_path)
     settings = get_settings()
+
+    if settings.chunking.contextual.enabled:
+        from langchain.text_splitter import RecursiveCharacterTextSplitter
+        from src.rag.contextual import ChunkContextAugmenter
+        from src.api.deps import _llm
+
+        # Pass 1: Extract full text using converter with a no-split splitter
+        no_split = RecursiveCharacterTextSplitter(chunk_size=1_000_000, chunk_overlap=0)
+        full_docs = converter.load_and_split_file(text_splitter=no_split, file_path=file_path)
+        full_text = "\n\n".join(doc.page_content for doc in full_docs)
+
+        # Pass 2: Split into real chunks using the same converter
+        chunks = converter.load_and_split_file(text_splitter=text_splitter, file_path=file_path)
+        chunks = enrich_chunk_metadata(chunks, settings.chunking.tokenizer)
+
+        if _llm is not None:
+            augmenter = ChunkContextAugmenter(llm=_llm, settings=settings)
+            chunks = augmenter.augment(full_text, chunks)
+        else:
+            logger.warning("Contextual augmentation enabled but no LLM available; skipping")
+
+        return chunks
+
+    documents = converter.load_and_split_file(text_splitter=text_splitter, file_path=file_path)
     return enrich_chunk_metadata(documents, settings.chunking.tokenizer)
 
 

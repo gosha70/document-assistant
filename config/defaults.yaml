@@ -20,6 +20,10 @@ chunking:
   chunk_overlap: 50
   tokenizer: "tiktoken:cl100k_base"
   batch_size: 300
+  contextual:
+    enabled: false
+    max_context_tokens: 128
+    document_summary_tokens: 256
 
 model:
   default_model_name: "hkunlp/instructor-large"

@@ -1,0 +1,22 @@
+name: chunk_context
+description: Generate a brief context description for a document chunk
+version: "1.0"
+
+input_variables:
+  - document_summary
+  - chunk_text
+
+templates:
+  generic: >-
+    Given the following document excerpt and a specific chunk from that document,
+    write a brief 1-3 sentence context that explains where this chunk fits within
+    the document. Focus on what the surrounding document is about and how this
+    chunk relates to it. Be factual and concise.
+
+    Document excerpt:
+    {document_summary}
+
+    Chunk:
+    {chunk_text}
+
+    Context:
