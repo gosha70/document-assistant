@@ -35,6 +35,12 @@ class TestSettingsFromYaml:
             finally:
                 os.unlink(f.name)
 
+    def test_contextual_chunk_defaults(self):
+        s = get_settings()
+        assert s.chunking.contextual.enabled is False
+        assert s.chunking.contextual.max_context_tokens == 128
+        assert s.chunking.contextual.document_summary_tokens == 256
+
     def test_system_prompt_loaded(self):
         s = get_settings()
         assert "document assistant" in s.system_prompt

@@ -187,6 +187,82 @@ class TestChromaIDContract:
         assert ids == list(dict.fromkeys(ids)), f"Duplicate IDs in fused results: {ids}"
 
 
+class TestEmbeddingTextContract:
+    """Verify that metadata['embedding_text'] triggers the raw chromadb store path."""
+
+    def test_augmented_docs_use_raw_chromadb_path(self, tmp_dir):
+        mock_emb = MagicMock()
+        mock_emb.model_name = "test"
+        lc_emb = MagicMock()
+        lc_emb.embed_documents.return_value = [[0.1] * 384]
+        mock_emb.get_langchain_embeddings.return_value = lc_emb
+
+        backend = ChromaBackend(embedding=mock_emb, persist_directory=tmp_dir)
+
+        docs = [
+            Document(
+                page_content="original text",
+                metadata={"source": "a.txt", "embedding_text": "context\n\noriginal text"},
+            )
+        ]
+        ids = backend.store(docs, collection_name="aug_test")
+        assert len(ids) == 1
+
+        # embed_documents should have been called with augmented text
+        lc_emb.embed_documents.assert_called_once_with(["context\n\noriginal text"])
+
+        # Stored document text should be the original page_content
+        collection = backend._client.get_collection("aug_test")
+        results = collection.get(ids=ids, include=["documents"])
+        assert results["documents"][0] == "original text"
+
+    def test_non_augmented_docs_use_langchain_path(self, tmp_dir):
+        mock_emb = MagicMock()
+        mock_emb.model_name = "test"
+        lc_emb = MagicMock()
+        lc_emb.embed_documents.return_value = [[0.1] * 384]
+        mock_emb.get_langchain_embeddings.return_value = lc_emb
+
+        backend = ChromaBackend(embedding=mock_emb, persist_directory=tmp_dir)
+
+        docs = [Document(page_content="plain text", metadata={"source": "a.txt"})]
+        ids = backend.store(docs, collection_name="plain_test")
+        assert len(ids) == 1
+
+        # Verify docs were stored successfully via LangChain path
+        collection = backend._client.get_collection("plain_test")
+        assert collection.count() == 1
+
+    def test_bm25_rebuild_prefers_embedding_text(self, tmp_dir):
+        """BM25 rebuild from Chroma should use embedding_text when available."""
+        # Store augmented docs via raw chromadb to set up metadata
+        client = chromadb.PersistentClient(path=tmp_dir, settings=CHROMA_SETTINGS)
+        col = client.create_collection("bm25_rebuild_test")
+        col.add(
+            ids=["doc-1"],
+            documents=["original text"],
+            embeddings=[[0.1] * 384],
+            metadatas=[{"source": "a.txt", "embedding_text": "context\n\noriginal text"}],
+        )
+        del client
+
+        mock_emb = MagicMock()
+        mock_emb.model_name = "test"
+        mock_emb.get_langchain_embeddings.return_value = MagicMock()
+
+        backend = ChromaBackend(
+            embedding=mock_emb,
+            persist_directory=tmp_dir,
+            allow_legacy_collections=True,
+            hybrid_settings={"enabled": True, "rrf_k": 60},
+        )
+        bm25 = backend._get_bm25_index("bm25_rebuild_test")
+
+        # BM25 index should have been rebuilt with the augmented text
+        assert bm25.size == 1
+        assert bm25._doc_texts[0] == "context\n\noriginal text"
+
+
 class TestCrossVersionPersistence:
     """Verify that stores created outside the current stack can be loaded."""
 

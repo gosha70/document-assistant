@@ -506,6 +506,61 @@ class TestSparseVocabRoundTrip:
         assert sv1.values == sv2.values
 
 
+class TestEmbeddingTextContract:
+    """Verify that metadata['embedding_text'] is used for embedding when present."""
+
+    def test_store_embeds_augmented_text(self):
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = False
+        emb = _make_embedding_mock()
+        backend = _make_backend(mock_client, embedding=emb)
+
+        docs = [
+            Document(
+                page_content="original text",
+                metadata={"source": "a.txt", "embedding_text": "context\n\noriginal text"},
+            )
+        ]
+        backend.store(docs, "test_col")
+
+        # embed_documents should be called with the augmented text
+        emb.embed_documents.assert_called_once_with(["context\n\noriginal text"])
+
+    def test_store_preserves_page_content_in_payload(self):
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = False
+        emb = _make_embedding_mock()
+        backend = _make_backend(mock_client, embedding=emb)
+
+        docs = [
+            Document(
+                page_content="original text",
+                metadata={"source": "a.txt", "embedding_text": "context\n\noriginal text"},
+            )
+        ]
+        backend.store(docs, "test_col")
+
+        # Find the document upsert call (not the provenance one)
+        upsert_calls = mock_client.upsert.call_args_list
+        doc_call = [
+            c
+            for c in upsert_calls
+            if any(getattr(p, "payload", {}).get("page_content") == "original text" for p in c.kwargs.get("points", []))
+        ]
+        assert len(doc_call) == 1
+
+    def test_store_without_embedding_text_uses_page_content(self):
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = False
+        emb = _make_embedding_mock()
+        backend = _make_backend(mock_client, embedding=emb)
+
+        docs = [Document(page_content="plain text", metadata={"source": "a.txt"})]
+        backend.store(docs, "test_col")
+
+        emb.embed_documents.assert_called_once_with(["plain text"])
+
+
 class TestBackendFactory:
     def test_qdrant_backend_wired_in_factory(self):
         from src.api.main import _create_backend
