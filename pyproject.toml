@@ -32,7 +32,7 @@ dash = "^2.17"
 dash-bootstrap-components = "^1.6"
 watchdog = "^4.0"
 transformers = "^4.40"
-huggingface-hub = "^0.23"
+huggingface-hub = "^0.24"
 sentence-transformers = "^3.0"
 InstructorEmbedding = "^1.0"
 pypdf = "^4.2"
@@ -56,7 +56,7 @@ types-pyyaml = "^6.0.12.20250915"
 bandit = {version = "^1.7", extras = ["toml"]}
 
 [tool.poetry.group.eval.dependencies]
-ragas = "*"
+ragas = "^0.4"
 deepeval = "*"
 
 [tool.pytest.ini_options]
