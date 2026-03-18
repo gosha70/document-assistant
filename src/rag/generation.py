@@ -8,11 +8,44 @@ from langchain_core.documents import Document
 from langchain.prompts import PromptTemplate
 
 from src.config.settings import get_settings
+from src.rag.context_firewall import sanitize_document_text
 from src.utils.metrics import get_metrics_collector
 
 logger = logging.getLogger(__name__)
 
 _PROMPTS_DIR = Path(__file__).resolve().parent.parent.parent / "prompts"
+
+
+def _truncate_context(documents: list[Document], max_chars: int) -> list[Document]:
+    """Return a prefix of *documents* whose combined page_content fits within *max_chars*.
+
+    Always returns at least one document so the caller always has some context.
+    Logs a warning when truncation actually occurs.
+    """
+    total = 0
+    result = []
+    for doc in documents:
+        if total + len(doc.page_content) > max_chars:
+            break
+        result.append(doc)
+        total += len(doc.page_content)
+    if not result and documents:
+        logger.warning(
+            "Context budget guard: first document (%d chars) exceeds max_context_chars=%d; "
+            "including it anyway to avoid empty context.",
+            len(documents[0].page_content),
+            max_chars,
+        )
+        result = [documents[0]]
+    if len(result) < len(documents):
+        logger.warning(
+            "Context budget guard: truncated context from %d to %d documents (%d/%d chars used).",
+            len(documents),
+            len(result),
+            sum(len(d.page_content) for d in result),
+            max_chars,
+        )
+    return result
 
 
 def load_prompt(name: str, template_type: str = "generic", use_history: bool = False) -> PromptTemplate:
@@ -71,7 +104,9 @@ class Generator:
         Returns:
             dict with keys: answer (str), sources (list[dict])
         """
-        context = "\n\n".join(doc.page_content for doc in documents)
+        settings = get_settings()
+        documents = _truncate_context(documents, settings.model.max_context_chars)
+        context = "\n\n".join(sanitize_document_text(doc.page_content) for doc in documents)
 
         prompt_kwargs = {"context": context, "question": query, "system_prompt": self._system_prompt}
         if self._use_history:
@@ -80,7 +115,6 @@ class Generator:
         formatted = self._prompt.format(**prompt_kwargs)
         logger.info(f"Generating answer for query (prompt length: {len(formatted)} chars)")
 
-        settings = get_settings()
         start = time.monotonic()
         raw_answer = self._llm.invoke(formatted)
         latency = time.monotonic() - start
@@ -104,7 +138,9 @@ class Generator:
         Requires an LLM that supports .stream() (e.g. ChatOpenAI).
         Falls back to non-streaming invoke if .stream() is not available.
         """
-        context = "\n\n".join(doc.page_content for doc in documents)
+        settings = get_settings()
+        documents = _truncate_context(documents, settings.model.max_context_chars)
+        context = "\n\n".join(sanitize_document_text(doc.page_content) for doc in documents)
 
         prompt_kwargs = {"context": context, "question": query, "system_prompt": self._system_prompt}
         if self._use_history:

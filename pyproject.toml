@@ -28,14 +28,14 @@ colorama = "^0.4.6"
 tqdm = "^4.66.4"
 tiktoken = ">=0.8.0"
 torch = ">=2.2.2"
-dash = "*"
-dash-bootstrap-components = "*"
-watchdog = "*"
-transformers = "*"
-huggingface-hub = "*"
-sentence-transformers = "*"
-InstructorEmbedding = "*"
-pypdf = "*"
+dash = "^2.17"
+dash-bootstrap-components = "^1.6"
+watchdog = "^4.0"
+transformers = "^4.40"
+huggingface-hub = "^0.23"
+sentence-transformers = "^3.0"
+InstructorEmbedding = "^1.0"
+pypdf = "^4.2"
 psutil = "^5.9"
 qdrant-client = "^1.12"
 rank-bm25 = "^0.2"
@@ -53,6 +53,7 @@ pytest-cov = "^5.0"
 ruff = "^0.4"
 mypy = "^1.19.1"
 types-pyyaml = "^6.0.12.20250915"
+bandit = {version = "^1.7", extras = ["toml"]}
 
 [tool.poetry.group.eval.dependencies]
 ragas = "*"
@@ -75,6 +76,10 @@ ignore_missing_imports = true
 follow_imports = "skip"
 explicit_package_bases = true
 exclude = ["src/rag/qdrant_backend\\.py", "src/rag/bm25_index\\.py"]
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+skips = ["B101"]  # assert used extensively via pytest
 
 [build-system]
 requires = ["poetry-core"]

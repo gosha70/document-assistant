@@ -9,6 +9,8 @@ from typing import Any
 from langchain_core.documents import Document
 
 from src.config.settings import get_settings
+from src.rag.context_firewall import sanitize_document_text
+from src.rag.generation import _truncate_context
 from src.utils.metrics import get_metrics_collector
 
 logger = logging.getLogger(__name__)
@@ -49,7 +51,7 @@ class StudyOutputGenerator:
             source = doc.metadata.get("source", "unknown")
             page = doc.metadata.get("page")
             label = f"[Source: {source}, page {page}]" if page is not None else f"[Source: {source}]"
-            parts.append(f"{label}\n{doc.page_content}")
+            parts.append(f"{label}\n{sanitize_document_text(doc.page_content)}")
         return "\n\n".join(parts)
 
     @staticmethod
@@ -74,15 +76,18 @@ class StudyOutputGenerator:
         return []
 
     def summarize(self, documents: list[Document]) -> str:
+        documents = _truncate_context(documents, get_settings().model.max_context_chars)
         context = self._build_context(documents)
         return self._invoke("summarize", {"context": context})
 
     def extract_glossary(self, documents: list[Document]) -> list[dict]:
+        documents = _truncate_context(documents, get_settings().model.max_context_chars)
         context = self._build_context(documents)
         raw = self._invoke("glossary", {"context": context})
         return self._parse_json_list(raw)
 
     def generate_flashcards(self, documents: list[Document], max_cards: int = 10) -> list[dict]:
+        documents = _truncate_context(documents, get_settings().model.max_context_chars)
         context = self._build_context(documents)
         raw = self._invoke("flashcards", {"context": context, "max_cards": str(max_cards)})
         return self._parse_json_list(raw)

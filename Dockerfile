@@ -20,6 +20,19 @@ RUN poetry config virtualenvs.create false \
 # Copy application code
 COPY . .
 
+# Run as non-root to reduce container escape blast radius.
+# Create a home dir and the model cache path so that HuggingFace/transformers
+# can download/cache model artifacts without hitting root-owned directories.
+RUN adduser --system --no-create-home --uid 1001 appuser \
+    && mkdir -p /home/appuser /app/model_cache \
+    && chown -R appuser /home/appuser /app/model_cache
+
+ENV HOME=/home/appuser \
+    HF_HOME=/home/appuser/.cache/huggingface \
+    TRANSFORMERS_CACHE=/app/model_cache
+
+USER appuser
+
 EXPOSE 8000
 
 # Health check

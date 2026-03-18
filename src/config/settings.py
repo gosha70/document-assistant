@@ -72,6 +72,7 @@ class ModelSettings(BaseModel):
     n_batch: int
     n_gpu_layers: int
     cache_dir: str
+    max_context_chars: int = 12000
 
 
 class LLMSettings(BaseModel):
