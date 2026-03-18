@@ -6,6 +6,9 @@ class SourceCitation(BaseModel):
     file: str
     page: Optional[int] = None
     excerpt: str
+    chunk_id: Optional[str] = None
+    search_type: Optional[str] = None
+    full_excerpt: Optional[str] = None
 
 
 class ChatRequest(BaseModel):

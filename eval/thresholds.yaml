@@ -1,0 +1,4 @@
+retrieval:
+  recall@5: 0.0    # minimum acceptable recall@5 (0.0 = no gate initially)
+  precision@5: 0.0
+  mrr: 0.0

@@ -16,6 +16,9 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
+
+import yaml
 
 from langchain_core.documents import Document
 
@@ -25,6 +28,35 @@ logger = logging.getLogger(__name__)
 _EVAL_DIR = Path(__file__).resolve().parent
 _DEFAULT_DATASET = _EVAL_DIR / "baseline_dataset.json"
 _DEFAULT_RESULTS_DIR = _EVAL_DIR / "results"
+_DEFAULT_THRESHOLDS = _EVAL_DIR / "thresholds.yaml"
+
+
+def load_thresholds(path: Path) -> dict:
+    with open(path) as f:
+        return yaml.safe_load(f) or {}
+
+
+def check_thresholds(metrics: dict, thresholds: dict, k: int) -> bool:
+    """Compare retrieval metrics against thresholds. Returns True if all pass."""
+    retrieval_thresholds = thresholds.get("retrieval", {})
+    all_passed = True
+    for key, minimum in retrieval_thresholds.items():
+        # normalise "recall@5" to match the actual k used
+        if key.startswith("recall@"):
+            actual_key = f"recall@{k}"
+        elif key.startswith("precision@"):
+            actual_key = f"precision@{k}"
+        else:
+            actual_key = key
+        value = metrics.get(actual_key)
+        if value is None:
+            continue
+        passed = value >= minimum
+        status = "PASS" if passed else "FAIL"
+        print(f"  {status}  {actual_key}: {value:.4f} (threshold: {minimum})")
+        if not passed:
+            all_passed = False
+    return all_passed
 
 
 def load_dataset(path: Path) -> dict:
@@ -270,7 +302,7 @@ def run_retrieval_eval(
 
             logger.debug(f"  [{i+1}/{len(samples)}] recall@{k}={r:.2f} precision@{k}={p:.2f} mrr={m:.2f}")
 
-    result = {
+    result: dict[str, Any] = {
         f"recall@{k}": sum(recalls) / len(recalls) if recalls else 0,
         f"precision@{k}": sum(precisions) / len(precisions) if precisions else 0,
         "mrr": sum(mrrs) / len(mrrs) if mrrs else 0,
@@ -428,6 +460,17 @@ def main():
         action="store_true",
         help="Enable all orchestrator features",
     )
+    parser.add_argument(
+        "--check-thresholds",
+        action="store_true",
+        help="Compare metrics against thresholds in eval/thresholds.yaml; exit 1 if any fail",
+    )
+    parser.add_argument(
+        "--thresholds-file",
+        type=Path,
+        default=_DEFAULT_THRESHOLDS,
+        help="Path to thresholds YAML file",
+    )
 
     args = parser.parse_args()
 
@@ -510,6 +553,15 @@ def main():
 
     path = save_results(results, args.results_dir)
     print(f"\nResults: {path}")
+
+    if args.check_thresholds:
+        thresholds = load_thresholds(args.thresholds_file)
+        print("\nThreshold check:")
+        passed = check_thresholds(results["retrieval"], thresholds, args.k)
+        if not passed:
+            logger.error("One or more metrics failed threshold checks")
+            sys.exit(1)
+        print("All thresholds passed.")
 
 
 if __name__ == "__main__":

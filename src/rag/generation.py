@@ -141,6 +141,9 @@ class Generator:
                 "file": doc.metadata.get("source", "unknown"),
                 "page": doc.metadata.get("page"),
                 "excerpt": doc.page_content[:200],
+                "chunk_id": doc.metadata.get("id"),
+                "search_type": doc.metadata.get("search_type"),
+                "full_excerpt": doc.page_content[:500],
             }
             for doc in documents
         ]

@@ -1,0 +1,20 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Poetry
+        run: pipx install poetry
+      - name: Install dependencies
+        run: poetry install --no-interaction
+      - name: Lint
+        run: poetry run ruff check src/ tests/
+      - name: Tests
+        run: poetry run pytest -q --tb=short
+      - name: Eval smoke test
+        run: poetry run pytest tests/test_eval_smoke.py -q --tb=short

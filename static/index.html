@@ -290,6 +290,88 @@
       font-style: italic;
     }
 
+    .source-meta-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 4px;
+      flex-wrap: wrap;
+    }
+
+    .source-chunk-id {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.78em;
+      color: #888;
+      background: rgba(0,0,0,0.25);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    .source-search-type {
+      font-size: 0.75em;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+    .source-search-type-dense   { background: #1e3a5f; color: #93c5fd; }
+    .source-search-type-hybrid  { background: #14532d; color: #86efac; }
+    .source-search-type-hyde    { background: #3b0764; color: #d8b4fe; }
+    .source-search-type-default { background: #27272a; color: #a1a1aa; }
+
+    .source-expand-btn {
+      background: transparent;
+      border: none;
+      color: #6366F1;
+      font-size: 0.78em;
+      cursor: pointer;
+      padding: 0;
+      margin-top: 2px;
+    }
+    .source-expand-btn:hover { text-decoration: underline; }
+
+    .source-full-excerpt {
+      display: none;
+      color: #D1D5DB;
+      margin-top: 4px;
+      font-style: italic;
+    }
+    .source-full-excerpt.open { display: block; }
+
+    .verification-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.8em;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 6px;
+      margin-top: 8px;
+    }
+    .verification-badge-ok   { background: #14532d; color: #86efac; }
+    .verification-badge-warn { background: #78350f; color: #fcd34d; }
+
+    .verification-claims {
+      font-size: 0.78em;
+      color: #fcd34d;
+      margin-top: 4px;
+      padding-left: 8px;
+    }
+
+    .pipeline-info {
+      margin-top: 8px;
+      padding: 5px 10px;
+      background: rgba(99,102,241,0.08);
+      border-left: 2px solid #6366F1;
+      border-radius: 4px;
+      font-size: 0.78em;
+      color: #A5B4FC;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .pipeline-info-item { display: flex; align-items: center; gap: 4px; }
+
     /* ---- Input area ---- */
     .input-area {
       display: flex;
@@ -746,9 +828,45 @@
       const item = document.createElement('div');
       item.className = 'source-item';
       const pageStr = src.page != null ? '<span class="source-page"> &middot; Page ' + src.page + '</span>' : '';
+
+      const searchTypeClass = src.search_type
+        ? 'source-search-type source-search-type-' + src.search_type.toLowerCase()
+        : 'source-search-type source-search-type-default';
+      const searchTypeLabel = src.search_type
+        ? src.search_type.charAt(0).toUpperCase() + src.search_type.slice(1).toLowerCase()
+        : null;
+      const searchTypeBadge = searchTypeLabel
+        ? '<span class="' + searchTypeClass + '">' + escapeHtml(searchTypeLabel) + '</span>'
+        : '';
+
+      const chunkIdBadge = src.chunk_id
+        ? '<span class="source-chunk-id">' + escapeHtml(src.chunk_id.substring(0, 8)) + '</span>'
+        : '';
+
+      const metaRow = (chunkIdBadge || searchTypeBadge)
+        ? '<div class="source-meta-row">' + chunkIdBadge + searchTypeBadge + '</div>'
+        : '';
+
       item.innerHTML =
         '<div class="source-file">' + escapeHtml(src.file) + pageStr + '</div>' +
+        metaRow +
         '<div class="source-excerpt">' + escapeHtml(src.excerpt || '') + '</div>';
+
+      if (src.full_excerpt && src.full_excerpt.length > (src.excerpt || '').length) {
+        const expandBtn = document.createElement('button');
+        expandBtn.className = 'source-expand-btn';
+        expandBtn.textContent = 'Show more';
+        const fullDiv = document.createElement('div');
+        fullDiv.className = 'source-full-excerpt';
+        fullDiv.textContent = src.full_excerpt;
+        expandBtn.addEventListener('click', function () {
+          const isOpen = fullDiv.classList.toggle('open');
+          expandBtn.textContent = isOpen ? 'Show less' : 'Show more';
+        });
+        item.appendChild(expandBtn);
+        item.appendChild(fullDiv);
+      }
+
       list.appendChild(item);
     });
 
@@ -761,6 +879,55 @@
     section.appendChild(toggle);
     section.appendChild(list);
     bubble.appendChild(section);
+    scrollBottom();
+  }
+
+  // ---- Append verification badge to an existing bubble ----
+  function appendVerification(bubble, result) {
+    if (!result) return;
+    const wrap = document.createElement('div');
+    if (result.verified === true) {
+      wrap.innerHTML = '<span class="verification-badge verification-badge-ok">&#10003; Verified</span>';
+    } else {
+      let html = '<span class="verification-badge verification-badge-warn">&#9888; Unverified</span>';
+      const claims = result.unsupported_claims;
+      if (claims && claims.length) {
+        html += '<div class="verification-claims">';
+        claims.forEach(function (c) { html += '<div>&bull; ' + escapeHtml(c) + '</div>'; });
+        html += '</div>';
+      }
+      wrap.innerHTML = html;
+    }
+    bubble.appendChild(wrap);
+    scrollBottom();
+  }
+
+  // ---- Append pipeline metadata info bar to an existing bubble ----
+  function appendPipelineInfo(bubble, data) {
+    if (!data) return;
+    const bar = document.createElement('div');
+    bar.className = 'pipeline-info';
+    const items = [];
+    if (data.decomposed_queries && data.decomposed_queries.length > 1) {
+      items.push('Query decomposed into ' + data.decomposed_queries.length + ' sub-queries');
+    }
+    if (data.hyde_used) {
+      items.push('HyDE retrieval used');
+    }
+    if (data.corrective_triggered) {
+      const conf = data.retrieval_confidence != null
+        ? ' (confidence: ' + data.retrieval_confidence.toFixed(2) + ')'
+        : '';
+      items.push('Corrective re-retrieval triggered' + conf);
+    }
+    if (!items.length) return;
+    items.forEach(function (text) {
+      const span = document.createElement('span');
+      span.className = 'pipeline-info-item';
+      span.textContent = text;
+      bar.appendChild(span);
+    });
+    bubble.appendChild(bar);
     scrollBottom();
   }
 
@@ -875,6 +1042,10 @@
             scrollBottom();
           } else if (parsed.type === 'sources') {
             appendSources(botBubbleRef, parsed.sources);
+          } else if (parsed.type === 'verification') {
+            appendVerification(botBubbleRef, parsed.result);
+          } else if (parsed.type === 'metadata') {
+            appendPipelineInfo(botBubbleRef, parsed.data);
           } else if (parsed.type === 'error') {
             botBubbleRef.className = 'chat-bubble error-bubble';
             botContentDiv.innerHTML =

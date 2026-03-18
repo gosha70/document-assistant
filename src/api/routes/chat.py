@@ -31,6 +31,9 @@ def chat(request: ChatRequest):
                 file=s["file"],
                 page=s.get("page"),
                 excerpt=s["excerpt"],
+                chunk_id=s.get("chunk_id"),
+                search_type=s.get("search_type"),
+                full_excerpt=s.get("full_excerpt"),
             )
             for s in result["sources"]
         ]
@@ -78,6 +81,17 @@ def chat_stream(request: ChatRequest):
             yield f"data: {json.dumps({'type': 'sources', 'sources': get_sources()})}\n\n"
             if "verification" in metadata:
                 yield f"data: {json.dumps({'type': 'verification', 'result': metadata['verification']})}\n\n"
+            pipeline_meta = {}
+            if metadata.get("decomposed_queries"):
+                pipeline_meta["decomposed_queries"] = metadata["decomposed_queries"]
+            if metadata.get("hyde_used"):
+                pipeline_meta["hyde_used"] = True
+            if metadata.get("retrieval_confidence") is not None:
+                pipeline_meta["retrieval_confidence"] = metadata["retrieval_confidence"]
+            if metadata.get("corrective_triggered"):
+                pipeline_meta["corrective_triggered"] = True
+            if pipeline_meta:
+                yield f"data: {json.dumps({'type': 'metadata', 'data': pipeline_meta})}\n\n"
             yield "data: [DONE]\n\n"
         except Exception as e:
             logger.error(f"Stream error: {e}", exc_info=True)
