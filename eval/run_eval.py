@@ -14,12 +14,11 @@ import json
 import logging
 import sys
 import time
+import yaml
+
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
-import yaml
-
 from langchain_core.documents import Document
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
