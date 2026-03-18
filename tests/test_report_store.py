@@ -1,6 +1,5 @@
 """Unit tests for ReportStore."""
 
-import pytest
 
 from src.utils.report_store import ReportStore
 

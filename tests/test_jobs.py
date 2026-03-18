@@ -1,7 +1,5 @@
 """Tests for background job store and executor."""
 import time
-import pytest
-from unittest.mock import MagicMock
 
 from src.utils.jobs import JobStore, JobExecutor
 

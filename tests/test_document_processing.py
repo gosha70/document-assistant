@@ -133,7 +133,6 @@ class TestConverterFallbackPath:
         """Write a file whose content will cause the primary Unstructured loader
         to fail, forcing the converter through its except branch (which calls
         log_info with exc_info=False) and into the TextLoader fallback."""
-        from unittest.mock import patch
         from embeddings.unstructured.base_file_converter import BaseFileConverter
 
         ext = file_type.get_extension()

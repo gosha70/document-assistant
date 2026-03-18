@@ -2,7 +2,6 @@
 
 import os
 import tempfile
-import pytest
 
 from src.config.settings import get_settings, _deep_merge
 

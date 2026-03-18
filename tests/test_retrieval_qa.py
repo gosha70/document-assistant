@@ -1,17 +1,17 @@
 """Tests for retrieval_qa.py with mocked LLM."""
+
 import pytest
 from unittest.mock import patch, MagicMock
 
 transformers_available = True
 try:
-    import transformers
-except ImportError:
+    import importlib.util
+
+    transformers_available = importlib.util.find_spec("transformers") is not None
+except Exception:
     transformers_available = False
 
-pytestmark = pytest.mark.skipif(
-    not transformers_available,
-    reason="transformers not installed"
-)
+pytestmark = pytest.mark.skipif(not transformers_available, reason="transformers not installed")
 
 
 class TestCreateModel:
@@ -25,7 +25,7 @@ class TestCreateModel:
         model_info.device_type = "cpu"
 
         mock_gguf.return_value = MagicMock()
-        result = create_model(model_info)
+        create_model(model_info)
 
         mock_gguf.assert_called_once()
 
@@ -39,7 +39,7 @@ class TestCreateModel:
         model_info.device_type = "cpu"
 
         mock_gguf.return_value = MagicMock()
-        result = create_model(model_info)
+        create_model(model_info)
 
         mock_gguf.assert_called_once()
 

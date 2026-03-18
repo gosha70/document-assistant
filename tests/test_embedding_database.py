@@ -1,14 +1,12 @@
 """Tests for embedding_database.py — verifies bug fixes and core functionality."""
 import os
-import tempfile
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock, call
+from unittest.mock import patch, MagicMock
 
 from embeddings.embedding_database import (
     create_manifest,
     create_vector_store,
     adjust_batch_size,
-    create_embedding_database,
     create_embedding_database_from_zip,
 )
 from embeddings.embeddings_constants import DEFAULT_COLLECTION_NAME, BATCH_SIZE
@@ -58,7 +56,6 @@ class TestCreateVectorStore:
 
         # asyncio.run will call the coroutine; mock create_embedding_database
         # to capture what was passed
-        import asyncio
 
         # create_embedding_database is async, mock needs to return a coroutine
         async def fake_create(**kwargs):

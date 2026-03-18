@@ -7,7 +7,6 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from src.api import deps
-from src.api.schemas import CollectionInfo
 from src.rag.vectorstore import VectorStoreBackend
 
 
@@ -18,7 +17,6 @@ def _create_test_app():
     async def noop_lifespan(app):
         yield
 
-    from src.api.main import create_app as _real_create
     from fastapi.middleware.cors import CORSMiddleware
     from src.api.middleware.auth import AuthMiddleware
     from src.api.middleware.ratelimit import RateLimitMiddleware

@@ -1,5 +1,4 @@
 """Tests for prompt_info.py — verifies bug fixes and prompt generation."""
-import pytest
 from prompt_info import PromptInfo, LLAMA_MODEL_NAME, MISTRAL_MODEL_NAME
 
 

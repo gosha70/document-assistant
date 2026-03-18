@@ -1,7 +1,6 @@
 """Tests for QueryOrchestrator."""
 
 from unittest.mock import MagicMock, patch
-import pytest
 from langchain_core.documents import Document
 
 from src.rag.orchestrator import QueryOrchestrator
@@ -196,7 +195,7 @@ class TestDecomposition:
         llm_result.content = '["What is X?", "What is Y?"]'
         orch._llm.invoke.return_value = llm_result
 
-        result = orch.run("What is X and Y?")
+        orch.run("What is X and Y?")
         # After retrieval from orchestrator, generator receives documents
         # that were passed to generate(). Verify the merged set was trimmed.
         call_args = orch._generator.generate.call_args
@@ -271,7 +270,7 @@ class TestCorrectiveRetrieval:
         llm_result.content = "hypothetical doc"
         orch._llm.invoke.return_value = llm_result
 
-        result = orch.run("What is X?")
+        orch.run("What is X?")
         call_args = orch._generator.generate.call_args
         passed_docs = call_args.kwargs.get("documents") or call_args[1].get("documents")
         assert len(passed_docs) <= 5

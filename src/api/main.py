@@ -221,7 +221,7 @@ async def lifespan(app: FastAPI):
 
     # Start periodic report thread
     if settings.reporting.enabled and settings.telemetry.enabled:
-        from src.utils.report_store import get_report_store, ReportStore
+        from src.utils.report_store import get_report_store
 
         # Ensure store uses configured max_snapshots
         store = get_report_store()

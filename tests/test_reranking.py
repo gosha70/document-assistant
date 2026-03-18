@@ -129,7 +129,7 @@ class TestEmbeddingFactory:
 
         with patch("src.rag.embeddings.InstructorEmbeddingAdapter") as mock_cls:
             mock_cls.return_value = MagicMock()
-            result = _create_embedding(settings)
+            _create_embedding(settings)
         mock_cls.assert_called_once()
 
     def test_huggingface_type(self):
@@ -143,7 +143,7 @@ class TestEmbeddingFactory:
 
         with patch("src.rag.embeddings.HuggingFaceEmbeddingAdapter") as mock_cls:
             mock_cls.return_value = MagicMock()
-            result = _create_embedding(settings)
+            _create_embedding(settings)
         mock_cls.assert_called_once()
 
     def test_unknown_type_raises(self):

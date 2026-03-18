@@ -1,6 +1,6 @@
 """Eval smoke test — lightweight retrieval sanity check with in-memory Chroma."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from langchain_core.documents import Document
 
 from eval.run_eval import run_retrieval_eval

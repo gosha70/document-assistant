@@ -1,6 +1,5 @@
 """Tests for two-pass contextual ingestion wiring in _load_and_split."""
 
-import pytest
 from unittest.mock import MagicMock, patch
 
 from langchain_core.documents import Document
@@ -136,7 +135,7 @@ class TestLoadAndSplitContextual:
                 with patch("src.api.deps._llm", new=mock_llm):
                     from src.api.routes.ingest import _load_and_split
 
-                    result = _load_and_split("/tmp/test.pdf")
+                    _load_and_split("/tmp/test.pdf")
 
         # Both passes went through the converter
         assert mock_converter.load_and_split_file.call_count == 2

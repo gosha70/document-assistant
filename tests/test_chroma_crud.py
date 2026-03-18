@@ -1,10 +1,9 @@
 """Tests for Chroma vectorstore CRUD operations using a temp directory."""
 
 import os
-import logging
 import shutil
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
 import chromadb
 from langchain_core.documents import Document

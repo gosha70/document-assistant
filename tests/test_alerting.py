@@ -1,6 +1,5 @@
 """Unit tests for AlertChecker."""
 
-import pytest
 
 from src.config.settings import AlertingSettings
 from src.utils.alerting import AlertChecker

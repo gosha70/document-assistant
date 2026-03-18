@@ -1,5 +1,4 @@
 """Tests for chunk metadata enrichment during ingestion."""
-import pytest
 from langchain_core.documents import Document
 
 from src.rag.chunking import count_tokens, enrich_chunk_metadata, CHUNKING_VERSION
