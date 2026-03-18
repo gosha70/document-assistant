@@ -575,6 +575,131 @@
 
     .doc-panel-body::-webkit-scrollbar { width: 4px; }
     .doc-panel-body::-webkit-scrollbar-thumb { background: #3F3F46; border-radius: 2px; }
+
+    /* ---- Study tools bar ---- */
+    .study-tools-bar {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .study-btn {
+      flex: 1;
+      padding: 7px 10px;
+      background: #1F1F1F;
+      border: 1px solid #3F3F46;
+      border-radius: 8px;
+      color: #A5B4FC;
+      font-size: 0.82em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .study-btn:hover { background: #2D2D2D; border-color: #6366F1; color: #E4E4E7; }
+    .study-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ---- Study results panel ---- */
+    .study-panel {
+      display: none;
+      background: #1F1F1F;
+      border: 1px solid #3F3F46;
+      border-radius: 12px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+    .study-panel.open { display: block; }
+
+    .study-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid #2D2D2D;
+    }
+
+    .study-panel-title {
+      font-size: 0.85em;
+      font-weight: 700;
+      color: #A5B4FC;
+    }
+
+    .study-panel-close {
+      background: transparent;
+      border: none;
+      color: #666;
+      font-size: 1.1em;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .study-panel-close:hover { color: #E4E4E7; }
+
+    .study-panel-body {
+      padding: 12px 14px;
+      max-height: 420px;
+      overflow-y: auto;
+      font-size: 0.88em;
+    }
+    .study-panel-body::-webkit-scrollbar { width: 4px; }
+    .study-panel-body::-webkit-scrollbar-thumb { background: #3F3F46; border-radius: 2px; }
+
+    .study-loading {
+      text-align: center;
+      color: #666;
+      padding: 20px 0;
+      font-style: italic;
+    }
+
+    /* Glossary */
+    .glossary-list { list-style: none; }
+    .glossary-term {
+      padding: 8px 0;
+      border-bottom: 1px solid #2D2D2D;
+    }
+    .glossary-term:last-child { border-bottom: none; }
+    .glossary-term-name { font-weight: 700; color: #A5B4FC; margin-bottom: 3px; }
+    .glossary-term-def { color: #D1D5DB; line-height: 1.5; }
+    .glossary-term-source { font-size: 0.8em; color: #888; margin-top: 3px; font-style: italic; }
+
+    /* Flashcards */
+    .flashcards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 10px;
+    }
+    .flashcard-wrapper {
+      perspective: 800px;
+      height: 120px;
+      cursor: pointer;
+    }
+    .flashcard-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transform-style: preserve-3d;
+      transition: transform 0.4s ease;
+    }
+    .flashcard-wrapper.flipped .flashcard-inner { transform: rotateY(180deg); }
+    .flashcard-face {
+      position: absolute;
+      inset: 0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      backface-visibility: hidden;
+      font-size: 0.85em;
+      line-height: 1.4;
+    }
+    .flashcard-front { background: #2D2D2D; border: 1px solid #3F3F46; color: #E4E4E7; }
+    .flashcard-back  { background: #1e3a5f; border: 1px solid #3b82f6; color: #bfdbfe; transform: rotateY(180deg); flex-direction: column; gap: 4px; }
+    .flashcard-card-source { font-size: 0.7em; color: #93c5fd; opacity: 0.8; }
+    .flashcard-hint  { font-size: 0.75em; color: #555; text-align: center; margin-top: 6px; }
+
+    /* Summary */
+    .study-summary { line-height: 1.65; color: #D1D5DB; }
   </style>
 </head>
 <body>
@@ -665,6 +790,22 @@
       </button>
     </div>
 
+    <!-- Study tools bar -->
+    <div class="study-tools-bar">
+      <button class="study-btn" id="summarize-btn" title="Summarise documents around your query">Summarize</button>
+      <button class="study-btn" id="glossary-btn" title="Extract key terms and definitions">Glossary</button>
+      <button class="study-btn" id="flashcards-btn" title="Generate study flashcards">Flashcards</button>
+    </div>
+
+    <!-- Study results panel -->
+    <div class="study-panel" id="study-panel">
+      <div class="study-panel-header">
+        <span class="study-panel-title" id="study-panel-title"></span>
+        <button class="study-panel-close" id="study-panel-close" aria-label="Close study panel">&times;</button>
+      </div>
+      <div class="study-panel-body" id="study-panel-body"></div>
+    </div>
+
   </div>
 </main>
 
@@ -681,6 +822,7 @@
 
   // ---- State ----
   let isStreaming = false;
+  let isStudyInFlight = false;
 
   // ---- DOM refs ----
   const chatBox     = document.getElementById('chat-box');
@@ -954,11 +1096,17 @@
   }
 
   // ---- Set streaming state ----
+  function updateStudyBtns() {
+    var locked = isStreaming || isStudyInFlight;
+    document.querySelectorAll('.study-btn').forEach(function (b) { b.disabled = locked; });
+  }
+
   function setStreaming(val) {
     isStreaming = val;
     sendBtn.disabled = val;
     msgInput.disabled = val;
     attachBtn.disabled = val;
+    updateStudyBtns();
   }
 
   // ---- Send message ----
@@ -1244,6 +1392,116 @@
       'Upload files using the attach button, then ask me questions about their content.'
     );
   }());
+
+  // ---- Study tools ----
+  const summarizeBtn    = document.getElementById('summarize-btn');
+  const glossaryBtn     = document.getElementById('glossary-btn');
+  const flashcardsBtn   = document.getElementById('flashcards-btn');
+  const studyPanel      = document.getElementById('study-panel');
+  const studyPanelTitle = document.getElementById('study-panel-title');
+  const studyPanelBody  = document.getElementById('study-panel-body');
+  const studyPanelClose = document.getElementById('study-panel-close');
+
+  studyPanelClose.addEventListener('click', function () {
+    studyPanel.classList.remove('open');
+  });
+
+  function openStudyPanel(title) {
+    studyPanelTitle.textContent = title;
+    studyPanelBody.innerHTML = '<div class="study-loading">Loading\u2026</div>';
+    studyPanel.classList.add('open');
+    studyPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  async function callStudy(endpoint, title, payload, renderFn) {
+    openStudyPanel(title);
+    isStudyInFlight = true;
+    updateStudyBtns();
+    try {
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+        body: JSON.stringify(payload),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(function () { return { detail: resp.statusText }; });
+        studyPanelBody.innerHTML =
+          '<div class="study-loading" style="color:#f65757;">Error ' + resp.status + ': ' +
+          escapeHtml(err.detail || resp.statusText) + '</div>';
+        return;
+      }
+      renderFn(await resp.json());
+    } catch (err) {
+      studyPanelBody.innerHTML =
+        '<div class="study-loading" style="color:#f65757;">Network error: ' + escapeHtml(err.message) + '</div>';
+    } finally {
+      isStudyInFlight = false;
+      updateStudyBtns();
+    }
+  }
+
+  summarizeBtn.addEventListener('click', function () {
+    const query = msgInput.value.trim() || 'main concepts overview';
+    callStudy('/study/summarize', 'Summary', { query: query }, function (data) {
+      studyPanelBody.innerHTML =
+        '<div class="study-summary chat-message">' + renderMarkdown(data.summary || '') + '</div>';
+      appendSources(studyPanelBody, data.sources);
+    });
+  });
+
+  glossaryBtn.addEventListener('click', function () {
+    const query = msgInput.value.trim() || 'key terms definitions';
+    callStudy('/study/glossary', 'Glossary', { query: query }, function (data) {
+      const terms = data.terms || [];
+      if (!terms.length) {
+        studyPanelBody.innerHTML = '<div class="study-loading">No terms extracted.</div>';
+      } else {
+        let html = '<ul class="glossary-list">';
+        terms.forEach(function (t) {
+          html += '<li class="glossary-term">';
+          html += '<div class="glossary-term-name">' + escapeHtml(t.term) + '</div>';
+          html += '<div class="glossary-term-def">' + escapeHtml(t.definition) + '</div>';
+          if (t.source) {
+            html += '<div class="glossary-term-source">' + escapeHtml(t.source) + '</div>';
+          }
+          html += '</li>';
+        });
+        html += '</ul>';
+        studyPanelBody.innerHTML = html;
+      }
+      appendSources(studyPanelBody, data.sources);
+    });
+  });
+
+  flashcardsBtn.addEventListener('click', function () {
+    const query = msgInput.value.trim() || 'key concepts facts';
+    callStudy('/study/flashcards', 'Flashcards', { query: query, max_cards: 10 }, function (data) {
+      const cards = data.cards || [];
+      if (!cards.length) {
+        studyPanelBody.innerHTML = '<div class="study-loading">No flashcards generated.</div>';
+      } else {
+        studyPanelBody.innerHTML =
+          '<div class="flashcards-grid"></div>' +
+          '<div class="flashcard-hint">Click a card to flip it</div>';
+        const grid = studyPanelBody.querySelector('.flashcards-grid');
+        cards.forEach(function (card) {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'flashcard-wrapper';
+          wrapper.innerHTML =
+            '<div class="flashcard-inner">' +
+              '<div class="flashcard-face flashcard-front">' + escapeHtml(card.front) + '</div>' +
+              '<div class="flashcard-face flashcard-back">' +
+                escapeHtml(card.back) +
+                (card.source ? '<div class="flashcard-card-source">' + escapeHtml(card.source) + '</div>' : '') +
+              '</div>' +
+            '</div>';
+          wrapper.addEventListener('click', function () { wrapper.classList.toggle('flipped'); });
+          grid.appendChild(wrapper);
+        });
+      }
+      appendSources(studyPanelBody, data.sources);
+    });
+  });
 
 }());
 </script>
