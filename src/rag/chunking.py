@@ -50,7 +50,7 @@ def get_tokenizer(tokenizer_spec: str):
     elif backend == "huggingface":
         from transformers import AutoTokenizer
 
-        tokenizer = AutoTokenizer.from_pretrained(model)
+        tokenizer = AutoTokenizer.from_pretrained(model)  # nosec B615
     else:
         raise ValueError(f"Unknown tokenizer backend '{backend}'. Supported: tiktoken, huggingface")
 

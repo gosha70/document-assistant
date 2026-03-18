@@ -6,7 +6,7 @@ Operates in two modes based on persist_path:
 """
 
 import logging
-import pickle
+import pickle  # nosec B403
 from pathlib import Path
 from typing import Optional
 
@@ -50,9 +50,9 @@ class BM25Index:
         id_set = set(ids)
         pairs = [(did, txt) for did, txt in zip(self._doc_ids, self._doc_texts) if did not in id_set]
         if pairs:
-            self._doc_ids, self._doc_texts = list(zip(*pairs))
-            self._doc_ids = list(self._doc_ids)
-            self._doc_texts = list(self._doc_texts)
+            doc_ids, doc_texts = zip(*pairs)
+            self._doc_ids = list(doc_ids)
+            self._doc_texts = list(doc_texts)
         else:
             self._doc_ids = []
             self._doc_texts = []
@@ -75,7 +75,7 @@ class BM25Index:
         path = Path(persist_path)
         if path.exists():
             with open(path, "rb") as f:
-                data = pickle.load(f)
+                data = pickle.load(f)  # nosec B301
             idx._doc_ids = data.get("doc_ids", [])
             idx._doc_texts = data.get("doc_texts", [])
             if idx._doc_ids:

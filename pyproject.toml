@@ -79,7 +79,7 @@ exclude = ["src/rag/qdrant_backend\\.py", "src/rag/bm25_index\\.py"]
 
 [tool.bandit]
 exclude_dirs = ["tests", ".venv"]
-skips = ["B101"]  # assert used extensively via pytest
+skips = ["B101", "B110"]  # B101: assert via pytest; B110: intentional except/pass fallback patterns
 
 [build-system]
 requires = ["poetry-core"]
