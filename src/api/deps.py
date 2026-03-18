@@ -53,15 +53,17 @@ def set_embedding(embedding: EmbeddingAdapter) -> None:
     _embedding = embedding
 
 
-def get_retriever(collection_name: Optional[str] = None) -> Retriever:
+def get_retriever(collection_name: Optional[str] = None, k: Optional[int] = None) -> Retriever:
     settings = get_settings()
     collection = collection_name or settings.vectorstore.collection_name
     reranker = _reranker or NoOpReranker()
+    final_k = k if k is not None else settings.reranker.top_k
     return Retriever(
         backend=get_vectorstore_backend(),
         collection_name=collection,
         reranker=reranker,
-        final_k=settings.reranker.top_k,
+        initial_k=max(20, final_k),
+        final_k=final_k,
         use_hybrid=settings.vectorstore.hybrid.enabled,
     )
 

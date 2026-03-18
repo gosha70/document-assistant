@@ -1,0 +1,23 @@
+name: flashcards
+description: Generate study flashcards from document excerpts
+version: "1.0"
+
+input_variables:
+  - context
+  - max_cards
+
+templates:
+  generic: >-
+    Generate study flashcards from the following document excerpts.
+    Create at most {max_cards} flashcards.
+    Use ONLY information present in the context.
+    Return a JSON array. Each element must have exactly these fields:
+      "front"  — a clear question testing understanding of a key concept
+      "back"   — a concise answer derived ONLY from the provided context
+      "source" — citation as "[Source: filename, page X]"
+    Respond with ONLY the JSON array.
+
+    Context:
+    {context}
+
+    JSON:

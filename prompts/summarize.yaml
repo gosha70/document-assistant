@@ -1,0 +1,17 @@
+name: summarize
+description: Summarise document excerpts with cited key points
+version: "1.0"
+
+input_variables:
+  - context
+
+templates:
+  generic: >-
+    Summarize the following document excerpts. Focus on key concepts, findings, and conclusions.
+    Cite the source for each major point using [Source: filename, page X].
+    Do not include information not found in the context.
+
+    Context:
+    {context}
+
+    Summary:

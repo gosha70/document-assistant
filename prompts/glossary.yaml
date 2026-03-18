@@ -1,0 +1,21 @@
+name: glossary
+description: Extract key terms and definitions from document excerpts
+version: "1.0"
+
+input_variables:
+  - context
+
+templates:
+  generic: >-
+    Extract technical terms and their definitions from the following excerpts.
+    Use ONLY information present in the context.
+    Return a JSON array. Each element must have exactly these fields:
+      "term"       — the term name
+      "definition" — the definition from the context
+      "source"     — citation as "[Source: filename, page X]"
+    Sort alphabetically by term. Respond with ONLY the JSON array.
+
+    Context:
+    {context}
+
+    JSON:

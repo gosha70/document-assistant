@@ -123,3 +123,40 @@ class ReportSnapshot(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
+
+
+class StudyRequest(BaseModel):
+    query: str = Field(..., min_length=1)
+    collection_name: Optional[str] = None
+    k: int = Field(default=10, ge=1, le=50)
+
+
+class FlashcardsRequest(StudyRequest):
+    max_cards: int = Field(default=10, ge=1, le=50)
+
+
+class SummaryResponse(BaseModel):
+    summary: str
+    sources: list[SourceCitation]
+
+
+class GlossaryTerm(BaseModel):
+    term: str
+    definition: str
+    source: Optional[str] = None
+
+
+class GlossaryResponse(BaseModel):
+    terms: list[GlossaryTerm]
+    sources: list[SourceCitation]
+
+
+class Flashcard(BaseModel):
+    front: str
+    back: str
+    source: Optional[str] = None
+
+
+class FlashcardsResponse(BaseModel):
+    cards: list[Flashcard]
+    sources: list[SourceCitation]

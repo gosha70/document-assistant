@@ -13,7 +13,7 @@ from src.config.settings import get_settings
 from src.api.middleware.auth import AuthMiddleware
 from src.api.middleware.ratelimit import RateLimitMiddleware
 from src.api.middleware.telemetry import TelemetryMiddleware
-from src.api.routes import chat, ingest, status, admin
+from src.api.routes import chat, ingest, status, admin, study
 
 logger = logging.getLogger(__name__)
 
@@ -273,6 +273,7 @@ def create_app() -> FastAPI:
     app.include_router(ingest.router)
     app.include_router(status.router)
     app.include_router(admin.router)
+    app.include_router(study.router)
 
     @app.get("/health")
     def health():
