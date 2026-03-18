@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 _PROVENANCE_KEY_MODEL = "embedding_model_name"
 _PROVENANCE_KEY_TYPE = "embedding_type"
+_PROVENANCE_KEY_STRATEGY = "embedding_strategy"
 
 
 _SPARSE_VOCAB_POINT_ID = "00000000-0000-0000-0000-000000000001"
@@ -46,6 +47,7 @@ class QdrantBackend(VectorStoreBackend):
         # Per-collection state: vector format and token encoder
         self._collection_vector_format: dict[str, str] = {}  # "single" or "named"
         self._token_encoders: dict = {}  # collection_name -> TokenEncoder, lazy-loaded
+        self._lc_models: dict = {}  # model_name -> SentenceTransformer, for LC query encoding
 
     def _get_vector_size(self) -> int:
         if self._vector_size is None:
@@ -86,20 +88,26 @@ class QdrantBackend(VectorStoreBackend):
         info = self._client.get_collection(collection_name)
         fmt = self._detect_vector_format(collection_name, info=info)
 
-        # Dimension check — adapt for single vs named vectors
-        if fmt == "named":
-            dense_config = info.config.params.vectors.get("dense")
-            existing_size = dense_config.size if dense_config else None
-        else:
-            existing_size = info.config.params.vectors.size
+        # Provenance check first — lets us skip the dimension check for LC collections
+        # (which may have a different hidden-dim than the standard adapter).
+        provenance = self.get_embedding_provenance(collection_name)
+        stored_strategy = provenance.get("embedding_strategy", "standard") if provenance else "standard"
 
-        expected_size = self._get_vector_size()
-        if existing_size and existing_size != expected_size:
-            raise ValueError(
-                f"Collection '{collection_name}' has vector size {existing_size}, "
-                f"but the configured embedding model produces {expected_size}-dimensional vectors. "
-                f"Reindex the collection or change the embedding model."
-            )
+        # Dimension check — skip for late_chunking (LC model dim ≠ adapter dim)
+        if stored_strategy != "late_chunking":
+            if fmt == "named":
+                dense_config = info.config.params.vectors.get("dense")
+                existing_size = dense_config.size if dense_config else None
+            else:
+                existing_size = info.config.params.vectors.size
+
+            expected_size = self._get_vector_size()
+            if existing_size and existing_size != expected_size:
+                raise ValueError(
+                    f"Collection '{collection_name}' has vector size {existing_size}, "
+                    f"but the configured embedding model produces {expected_size}-dimensional vectors. "
+                    f"Reindex the collection or change the embedding model."
+                )
 
         # Log warning if hybrid enabled but collection is legacy single-vector
         if fmt == "single" and self._hybrid_enabled:
@@ -108,8 +116,7 @@ class QdrantBackend(VectorStoreBackend):
                 f"Hybrid search disabled for this collection; falling back to dense-only."
             )
 
-        # Provenance check
-        provenance = self.get_embedding_provenance(collection_name)
+        # Provenance model/type check
         if provenance is None:
             if self._allow_legacy_collections:
                 logger.warning(
@@ -127,29 +134,48 @@ class QdrantBackend(VectorStoreBackend):
         else:
             stored_model = provenance.get("model_name")
             stored_type = provenance.get("type")
-            if stored_model and stored_model != self._embedding.model_name:
-                raise ValueError(
-                    f"Collection '{collection_name}' was built with embedding model '{stored_model}' "
-                    f"(type: {stored_type}), but the configured model is '{self._embedding.model_name}' "
-                    f"(type: {self._embedding_type}). Reindex the collection or restore the original config."
-                )
-            if stored_type and stored_type != self._embedding_type:
-                raise ValueError(
-                    f"Collection '{collection_name}' was built with embedding type '{stored_type}', "
-                    f"but the configured type is '{self._embedding_type}'. "
-                    f"Reindex the collection or restore the original config."
-                )
+
+            if stored_strategy == "late_chunking":
+                # Index vectors were built with the LC model; query encoding is
+                # routed through _get_lc_query_embedding() in search().
+                pass
+            else:
+                if stored_model and stored_model != self._embedding.model_name:
+                    raise ValueError(
+                        f"Collection '{collection_name}' was built with embedding model '{stored_model}' "
+                        f"(type: {stored_type}), but the configured model is '{self._embedding.model_name}' "
+                        f"(type: {self._embedding_type}). Reindex the collection or restore the original config."
+                    )
+                if stored_type and stored_type != self._embedding_type:
+                    raise ValueError(
+                        f"Collection '{collection_name}' was built with embedding type '{stored_type}', "
+                        f"but the configured type is '{self._embedding_type}'. "
+                        f"Reindex the collection or restore the original config."
+                    )
 
         self._validated_collections.add(collection_name)
 
-    def _ensure_collection_for_write(self, collection_name: str) -> None:
-        """Create collection if missing; validate if it exists."""
+    def _get_lc_query_embedding(self, model_name: str, query: str) -> list[float]:
+        """Encode a query with the named sentence-transformers model (cached)."""
+        if model_name not in self._lc_models:
+            from sentence_transformers import SentenceTransformer
+
+            self._lc_models[model_name] = SentenceTransformer(model_name)
+        vec = self._lc_models[model_name].encode(query, normalize_embeddings=True)
+        return vec.tolist() if hasattr(vec, "tolist") else list(vec)
+
+    def _ensure_collection_for_write(self, collection_name: str, vector_size: Optional[int] = None) -> None:
+        """Create collection if missing; validate if it exists.
+
+        vector_size overrides the standard adapter dimension — used for late-chunking
+        collections whose index dim comes from the LC model, not the adapter.
+        """
         from qdrant_client.models import Distance, VectorParams
 
         if self._client.collection_exists(collection_name):
             self._validate_collection(collection_name)
         else:
-            dim = self._get_vector_size()
+            dim = vector_size if vector_size is not None else self._get_vector_size()
             if self._hybrid_enabled:
                 from qdrant_client.models import SparseIndexParams, SparseVectorParams, Modifier
 
@@ -175,15 +201,28 @@ class QdrantBackend(VectorStoreBackend):
                 self._collection_vector_format[collection_name] = "single"
                 logger.info(f"Created Qdrant collection '{collection_name}'")
 
-    def _set_provenance(self, collection_name: str) -> None:
+    def _set_provenance(
+        self,
+        collection_name: str,
+        embedding_strategy: str = "standard",
+        lc_model_name: Optional[str] = None,
+        vector_size: Optional[int] = None,
+    ) -> None:
         """Store embedding provenance as a sentinel point in the collection."""
         try:
             from qdrant_client.models import PointStruct
 
             provenance_id = "00000000-0000-0000-0000-000000000000"
             fmt = self._collection_vector_format.get(collection_name, "single")
-            dim = self._get_vector_size()
+            # Must match the collection's actual dense dimension.
+            dim = vector_size if vector_size is not None else self._get_vector_size()
 
+            # For late_chunking collections the index was built with the LC model.
+            model_name = (
+                lc_model_name if embedding_strategy == "late_chunking" and lc_model_name else self._embedding.model_name
+            )
+
+            vector: dict[str, list[float]] | list[float]
             if fmt == "named":
                 vector = {"dense": [0.0] * dim}
             else:
@@ -197,8 +236,9 @@ class QdrantBackend(VectorStoreBackend):
                         vector=vector,
                         payload={
                             "_provenance": True,
-                            _PROVENANCE_KEY_MODEL: self._embedding.model_name,
+                            _PROVENANCE_KEY_MODEL: model_name,
                             _PROVENANCE_KEY_TYPE: self._embedding_type,
+                            _PROVENANCE_KEY_STRATEGY: embedding_strategy,
                         },
                     )
                 ],
@@ -236,24 +276,27 @@ class QdrantBackend(VectorStoreBackend):
             pass
         return {}
 
-    def _save_sparse_vocab(self, collection_name: str, vocab: dict[str, int]) -> None:
+    def _save_sparse_vocab(
+        self, collection_name: str, vocab: dict[str, int], vector_size: Optional[int] = None
+    ) -> None:
         """Save sparse vocabulary as a metadata point in the collection."""
         from qdrant_client.models import PointStruct
 
         fmt = self._collection_vector_format.get(collection_name, "single")
-        dim = self._get_vector_size()
+        dim = vector_size if vector_size is not None else self._get_vector_size()
 
+        vocab_vector: dict[str, list[float]] | list[float]
         if fmt == "named":
-            vector = {"dense": [0.0] * dim}
+            vocab_vector = {"dense": [0.0] * dim}
         else:
-            vector = [0.0] * dim
+            vocab_vector = [0.0] * dim
 
         self._client.upsert(
             collection_name=collection_name,
             points=[
                 PointStruct(
                     id=_SPARSE_VOCAB_POINT_ID,
-                    vector=vector,
+                    vector=vocab_vector,
                     payload={
                         "_sparse_vocab": True,
                         "vocab": vocab,
@@ -265,36 +308,122 @@ class QdrantBackend(VectorStoreBackend):
     def store(self, documents: list[Document], collection_name: str) -> list[str]:
         from qdrant_client.models import PointStruct
 
-        self._ensure_collection_for_write(collection_name)
-        self._set_provenance(collection_name)
-        texts = [doc.metadata.get("embedding_text") or doc.page_content for doc in documents]
-        vectors = self._embedding.embed_documents(texts)
+        # Detect embedding strategy before collection creation — late_chunking
+        # collections may have a different vector dimension than the standard adapter.
+        strategy = "standard"
+        if any(doc.metadata.get("embedding_strategy") == "late_chunking" for doc in documents):
+            strategy = "late_chunking"
+        elif any(doc.metadata.get("embedding_text") for doc in documents):
+            strategy = "contextual"
+
+        lc_model_name: Optional[str] = next(
+            (d.metadata.get("late_chunking_model") for d in documents if d.metadata.get("late_chunking_model")),
+            None,
+        )
+
+        # Prevalidate LC preconditions before any collection mutation so a failed
+        # ingest cannot leave behind a partially initialised or misconfigured collection.
+        if strategy == "late_chunking":
+            if not any(doc.metadata.get("_precomputed_vector") for doc in documents):
+                raise ValueError(
+                    "Documents are marked 'late_chunking' but none have '_precomputed_vector'. "
+                    "Call LateChunkingEmbedder.embed_document_chunks() before storing."
+                )
+            if lc_model_name is None:
+                raise ValueError(
+                    "Documents are marked 'late_chunking' but none carry 'late_chunking_model' "
+                    "metadata. Cannot stamp correct provenance or encode fallback chunks."
+                )
+
+        # Guard: reject ingest that would change the collection's embedding strategy.
+        # Must run before collection creation so a rejected call leaves no side-effects.
+        collection_existed = self._client.collection_exists(collection_name)
+        if collection_existed:
+            existing_provenance = self.get_embedding_provenance(collection_name)
+            if existing_provenance is None:
+                # Legacy collection: embedding space unknown. Only allow standard
+                # ingest (no risk of polluting a known-good LC or contextual space).
+                if strategy != "standard":
+                    raise ValueError(
+                        f"Collection '{collection_name}' has no embedding provenance. "
+                        f"Cannot ingest '{strategy}' documents into a legacy collection. "
+                        f"Reindex the collection to establish provenance first."
+                    )
+            else:
+                existing_strategy = existing_provenance.get("embedding_strategy", "standard")
+                if existing_strategy != strategy:
+                    raise ValueError(
+                        f"Collection '{collection_name}' uses embedding strategy '{existing_strategy}'. "
+                        f"Cannot ingest '{strategy}' documents into the same collection. "
+                        f"Use a separate collection to avoid mixing embedding spaces."
+                    )
+
+        # All validation passed — now safe to create/mutate the collection.
+        # Peek at the first precomputed vector for the LC dimension.
+        lc_dim: Optional[int] = None
+        if strategy == "late_chunking":
+            first_vec = next(
+                (d.metadata.get("_precomputed_vector") for d in documents if d.metadata.get("_precomputed_vector")),
+                None,
+            )
+            lc_dim = len(first_vec) if first_vec is not None else None
+            self._ensure_collection_for_write(collection_name, vector_size=lc_dim)
+        else:
+            self._ensure_collection_for_write(collection_name)
+
+        self._set_provenance(
+            collection_name, embedding_strategy=strategy, lc_model_name=lc_model_name, vector_size=lc_dim
+        )
+
+        # Build dense vectors: use pre-computed if available, otherwise embed
+        has_precomputed = any(doc.metadata.get("_precomputed_vector") for doc in documents)
+        if has_precomputed:
+            vectors = []
+            for doc in documents:
+                vec = doc.metadata.pop("_precomputed_vector", None)
+                if vec is not None:
+                    vectors.append(vec)
+                elif lc_model_name is not None:
+                    # Embed with the LC model so every point stays in the same space.
+                    vectors.append(self._get_lc_query_embedding(lc_model_name, doc.page_content))
+                else:
+                    raise ValueError(
+                        f"LC chunk has no '_precomputed_vector' and 'late_chunking_model' metadata "
+                        f"is missing. Cannot embed in the correct vector space (first 50 chars: "
+                        f"'{doc.page_content[:50]}')."
+                    )
+        else:
+            texts = [doc.metadata.get("embedding_text") or doc.page_content for doc in documents]
+            vectors = self._embedding.embed_documents(texts)
+
         ids = [str(uuid.uuid4()) for _ in documents]
 
         fmt = self._collection_vector_format.get(collection_name, "single")
         use_sparse = self._hybrid_enabled and fmt == "named"
 
+        sparse_texts = [doc.metadata.get("embedding_text") or doc.page_content for doc in documents]
         if use_sparse:
             encoder = self._get_token_encoder(collection_name)
-            sparse_vectors = [encoder.encode_tf(text) for text in texts]
+            sparse_vectors = [encoder.encode_tf(text) for text in sparse_texts]
 
-        points = []
+        points: list[PointStruct] = []
         for i, (doc_id, dense_vec, doc) in enumerate(zip(ids, vectors, documents)):
+            point_vector: dict | list
             if use_sparse:
                 from qdrant_client.models import SparseVector as QdrantSparseVector
 
                 sv = sparse_vectors[i]
-                vector = {
+                point_vector = {
                     "dense": dense_vec,
                     "sparse": QdrantSparseVector(indices=sv.indices, values=sv.values),
                 }
             else:
-                vector = dense_vec
+                point_vector = dense_vec
 
             points.append(
                 PointStruct(
                     id=doc_id,
-                    vector=vector,
+                    vector=point_vector,
                     payload={
                         "page_content": doc.page_content,
                         "metadata": doc.metadata,
@@ -306,7 +435,7 @@ class QdrantBackend(VectorStoreBackend):
 
         # Persist updated vocabulary to collection
         if use_sparse:
-            self._save_sparse_vocab(collection_name, encoder.vocab)
+            self._save_sparse_vocab(collection_name, encoder.vocab, vector_size=lc_dim)
 
         logger.info(f"Stored {len(ids)} documents in Qdrant collection '{collection_name}'")
         return ids
@@ -333,7 +462,12 @@ class QdrantBackend(VectorStoreBackend):
             return []
 
         self._validate_collection(collection_name)
-        query_vector = self._embedding.embed_query(query)
+
+        provenance = self.get_embedding_provenance(collection_name)
+        if provenance and provenance.get("embedding_strategy") == "late_chunking":
+            query_vector = self._get_lc_query_embedding(provenance["model_name"], query)
+        else:
+            query_vector = self._embedding.embed_query(query)
 
         fmt = self._collection_vector_format.get(collection_name, "single")
         query_arg = query_vector
@@ -376,7 +510,11 @@ class QdrantBackend(VectorStoreBackend):
         from qdrant_client.models import Prefetch, Fusion, FusionQuery, NamedVector, NamedSparseVector
         from qdrant_client.models import SparseVector as QdrantSparseVector
 
-        query_vector = self._embedding.embed_query(query)
+        provenance = self.get_embedding_provenance(collection_name)
+        if provenance and provenance.get("embedding_strategy") == "late_chunking":
+            query_vector = self._get_lc_query_embedding(provenance["model_name"], query)
+        else:
+            query_vector = self._embedding.embed_query(query)
         encoder = self._get_token_encoder(collection_name)
         sparse_vec = encoder.encode_query_tf(query)
 
@@ -625,7 +763,7 @@ class QdrantBackend(VectorStoreBackend):
             with_payload=True,
         )
 
-        chunks = []
+        chunks: list[dict] = []
         for point in results:
             payload = point.payload or {}
             if payload.get("_provenance") or payload.get("_sparse_vocab"):
@@ -704,6 +842,7 @@ class QdrantBackend(VectorStoreBackend):
                     return {
                         "model_name": model_name,
                         "type": payload.get(_PROVENANCE_KEY_TYPE),
+                        "embedding_strategy": payload.get(_PROVENANCE_KEY_STRATEGY, "standard"),
                     }
         except Exception:
             pass

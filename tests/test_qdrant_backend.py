@@ -84,6 +84,76 @@ class TestStore:
         with pytest.raises(ValueError, match="vector size 768"):
             backend.store(docs, "wrong_dim_col")
 
+    def test_store_rejects_lc_ingest_into_legacy_collection(self):
+        """LC ingest into an existing no-provenance collection must raise before any writes."""
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = True
+        mock_client.retrieve.return_value = []  # no provenance sentinel → legacy
+        backend = _make_backend(mock_client)
+
+        docs = [
+            Document(
+                page_content="chunk",
+                metadata={
+                    "embedding_strategy": "late_chunking",
+                    "late_chunking_model": "test-lc-model",
+                    "_precomputed_vector": [0.1, 0.2, 0.3, 0.4],
+                },
+            )
+        ]
+
+        with pytest.raises(ValueError, match="no embedding provenance"):
+            backend.store(docs, "legacy_col")
+
+        # Validation must fire before any collection mutation
+        mock_client.create_collection.assert_not_called()
+        mock_client.upsert.assert_not_called()
+
+    def test_store_rejects_lc_docs_missing_model_name(self):
+        """LC docs with vectors but no late_chunking_model must raise before any writes."""
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = False
+        backend = _make_backend(mock_client)
+
+        docs = [
+            Document(
+                page_content="chunk",
+                metadata={
+                    "embedding_strategy": "late_chunking",
+                    # deliberately omit late_chunking_model
+                    "_precomputed_vector": [0.1, 0.2, 0.3, 0.4],
+                },
+            )
+        ]
+
+        with pytest.raises(ValueError, match="late_chunking_model"):
+            backend.store(docs, "test_col")
+
+        mock_client.create_collection.assert_not_called()
+        mock_client.upsert.assert_not_called()
+
+    def test_store_rejects_lc_docs_with_no_precomputed_vectors(self):
+        """LC-marked docs where none have _precomputed_vector must raise before any writes."""
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = False  # fresh collection
+        backend = _make_backend(mock_client)
+
+        docs = [
+            Document(
+                page_content="chunk",
+                metadata={
+                    "embedding_strategy": "late_chunking",
+                    "late_chunking_model": "test-lc-model",
+                },
+            )
+        ]
+
+        with pytest.raises(ValueError, match="none have '_precomputed_vector'"):
+            backend.store(docs, "test_col")
+
+        mock_client.create_collection.assert_not_called()
+        mock_client.upsert.assert_not_called()
+
 
 class TestSearch:
     def test_search_returns_documents(self):
@@ -335,7 +405,7 @@ class TestProvenance:
         backend = _make_backend(mock_client)
         prov = backend.get_embedding_provenance("test_col")
 
-        assert prov == {"model_name": "my-model", "type": "huggingface"}
+        assert prov == {"model_name": "my-model", "type": "huggingface", "embedding_strategy": "standard"}
 
     def test_get_embedding_provenance_returns_none_when_empty(self):
         mock_client = MagicMock()

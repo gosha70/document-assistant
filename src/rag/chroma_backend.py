@@ -18,6 +18,7 @@ CHROMA_SETTINGS = ChromaSettings(
 
 _PROVENANCE_KEY_MODEL = "embedding_model_name"
 _PROVENANCE_KEY_TYPE = "embedding_type"
+_PROVENANCE_KEY_STRATEGY = "embedding_strategy"
 
 
 class ChromaBackend(VectorStoreBackend):
@@ -37,6 +38,7 @@ class ChromaBackend(VectorStoreBackend):
         self._allow_legacy_collections = allow_legacy_collections
         self._instances: dict[str, Chroma] = {}
         self._validated_collections: set[str] = set()
+        self._lc_models: dict = {}  # model_name -> SentenceTransformer, for LC query encoding
 
         # Hybrid search config
         self._hybrid_enabled = bool(hybrid_settings and hybrid_settings.get("enabled", False))
@@ -87,37 +89,58 @@ class ChromaBackend(VectorStoreBackend):
         else:
             stored_model = provenance.get("model_name")
             stored_type = provenance.get("type")
-            if stored_model != self._embedding.model_name:
-                raise ValueError(
-                    f"Collection '{collection_name}' was built with embedding model '{stored_model}' "
-                    f"(type: {stored_type}), but the configured model is '{self._embedding.model_name}' "
-                    f"(type: {self._embedding_type}). Reindex the collection or restore the original config."
-                )
-            if stored_type and stored_type != self._embedding_type:
-                raise ValueError(
-                    f"Collection '{collection_name}' was built with embedding type '{stored_type}', "
-                    f"but the configured type is '{self._embedding_type}'. "
-                    f"Reindex the collection or restore the original config."
-                )
+            stored_strategy = provenance.get("embedding_strategy", "standard")
+
+            if stored_strategy == "late_chunking":
+                # Index vectors were produced by the LC model; query encoding is
+                # routed through _get_lc_query_embedding() in search(). The
+                # standard adapter is not used for this collection.
+                pass
+            else:
+                if stored_model != self._embedding.model_name:
+                    raise ValueError(
+                        f"Collection '{collection_name}' was built with embedding model '{stored_model}' "
+                        f"(type: {stored_type}), but the configured model is '{self._embedding.model_name}' "
+                        f"(type: {self._embedding_type}). Reindex the collection or restore the original config."
+                    )
+                if stored_type and stored_type != self._embedding_type:
+                    raise ValueError(
+                        f"Collection '{collection_name}' was built with embedding type '{stored_type}', "
+                        f"but the configured type is '{self._embedding_type}'. "
+                        f"Reindex the collection or restore the original config."
+                    )
 
         self._validated_collections.add(collection_name)
 
-    def _set_provenance(self, collection_name: str) -> None:
+    def _get_lc_query_embedding(self, model_name: str, query: str) -> list[float]:
+        """Encode a query with the named sentence-transformers model (cached)."""
+        if model_name not in self._lc_models:
+            from sentence_transformers import SentenceTransformer
+
+            self._lc_models[model_name] = SentenceTransformer(model_name)
+        vec = self._lc_models[model_name].encode(query, normalize_embeddings=True)
+        return vec.tolist() if hasattr(vec, "tolist") else list(vec)
+
+    def _set_provenance(
+        self, collection_name: str, embedding_strategy: str = "standard", lc_model_name: Optional[str] = None
+    ) -> None:
         """Store embedding provenance in Chroma collection metadata."""
         try:
+            # For late_chunking collections the index was built with the LC model,
+            # not the standard embedding adapter.
+            model_name = (
+                lc_model_name if embedding_strategy == "late_chunking" and lc_model_name else self._embedding.model_name
+            )
+            meta = {
+                _PROVENANCE_KEY_MODEL: model_name,
+                _PROVENANCE_KEY_TYPE: self._embedding_type,
+                _PROVENANCE_KEY_STRATEGY: embedding_strategy,
+            }
             collection = self._client.get_or_create_collection(
                 collection_name,
-                metadata={
-                    _PROVENANCE_KEY_MODEL: self._embedding.model_name,
-                    _PROVENANCE_KEY_TYPE: self._embedding_type,
-                },
+                metadata=meta,
             )
-            collection.modify(
-                metadata={
-                    _PROVENANCE_KEY_MODEL: self._embedding.model_name,
-                    _PROVENANCE_KEY_TYPE: self._embedding_type,
-                }
-            )
+            collection.modify(metadata=meta)
         except Exception as e:
             logger.warning(f"Failed to set embedding provenance on '{collection_name}': {e}")
 
@@ -164,15 +187,93 @@ class ChromaBackend(VectorStoreBackend):
 
     def store(self, documents: list[Document], collection_name: str) -> list[str]:
         exists = self._collection_exists(collection_name)
-        db = self._get_or_create(collection_name)
         if exists:
             self._validate_embedding(collection_name)
-        self._set_provenance(collection_name)
 
+        # Detect embedding strategy from document metadata
+        strategy = "standard"
+        if any(doc.metadata.get("embedding_strategy") == "late_chunking" for doc in documents):
+            strategy = "late_chunking"
+        elif any(doc.metadata.get("embedding_text") for doc in documents):
+            strategy = "contextual"
+        lc_model_name: Optional[str] = next(
+            (d.metadata.get("late_chunking_model") for d in documents if d.metadata.get("late_chunking_model")),
+            None,
+        )
+
+        # Prevalidate LC preconditions before any collection mutation so a failed
+        # ingest cannot leave behind a partially initialised collection.
+        if strategy == "late_chunking":
+            if not any(doc.metadata.get("_precomputed_vector") for doc in documents):
+                raise ValueError(
+                    "Documents are marked 'late_chunking' but none have '_precomputed_vector'. "
+                    "Call LateChunkingEmbedder.embed_document_chunks() before storing."
+                )
+            if lc_model_name is None:
+                raise ValueError(
+                    "Documents are marked 'late_chunking' but none carry 'late_chunking_model' "
+                    "metadata. Cannot stamp correct provenance or encode fallback chunks."
+                )
+
+        # Guard: reject ingest that would change the collection's embedding strategy.
+        # Mixing strategies corrupts retrieval — all indexed points must share one space.
+        if exists:
+            existing_provenance = self.get_embedding_provenance(collection_name)
+            if existing_provenance is None:
+                # Legacy collection: embedding space unknown. Only allow standard
+                # ingest (no risk of polluting a known-good LC or contextual space).
+                if strategy != "standard":
+                    raise ValueError(
+                        f"Collection '{collection_name}' has no embedding provenance. "
+                        f"Cannot ingest '{strategy}' documents into a legacy collection. "
+                        f"Reindex the collection to establish provenance first."
+                    )
+            else:
+                existing_strategy = existing_provenance.get("embedding_strategy", "standard")
+                if existing_strategy != strategy:
+                    raise ValueError(
+                        f"Collection '{collection_name}' uses embedding strategy '{existing_strategy}'. "
+                        f"Cannot ingest '{strategy}' documents into the same collection. "
+                        f"Use a separate collection to avoid mixing embedding spaces."
+                    )
+
+        # All validation passed — now safe to mutate the collection.
+        self._set_provenance(collection_name, embedding_strategy=strategy, lc_model_name=lc_model_name)
+
+        has_precomputed = any(doc.metadata.get("_precomputed_vector") for doc in documents)
         has_augmented = any(doc.metadata.get("embedding_text") for doc in documents)
 
-        if has_augmented:
-            # Bypass LangChain wrapper: embed augmented text, store original
+        if has_precomputed:
+            # Late chunking: use pre-computed vectors directly
+            collection = self._client.get_or_create_collection(collection_name)
+            import uuid as _uuid
+
+            ids = [str(_uuid.uuid4()) for _ in documents]
+
+            # Extract pre-computed vectors; fall back to LC model for unpooled chunks.
+            # Never use the standard adapter — that would mix embedding spaces.
+            vectors = []
+            for doc in documents:
+                vec = doc.metadata.pop("_precomputed_vector", None)
+                if vec is not None:
+                    vectors.append(vec)
+                elif lc_model_name is not None:
+                    vectors.append(self._get_lc_query_embedding(lc_model_name, doc.page_content))
+                else:
+                    raise ValueError(
+                        f"LC chunk has no '_precomputed_vector' and 'late_chunking_model' metadata "
+                        f"is missing. Cannot embed in the correct vector space (first 50 chars: "
+                        f"'{doc.page_content[:50]}')."
+                    )
+
+            collection.add(
+                ids=ids,
+                embeddings=vectors,
+                documents=[doc.page_content for doc in documents],
+                metadatas=[doc.metadata for doc in documents],
+            )
+        elif has_augmented:
+            # Contextual augmentation: embed augmented text, store original
             embedding_texts = [doc.metadata.get("embedding_text") or doc.page_content for doc in documents]
             lc_emb = self._embedding.get_langchain_embeddings()
             vectors = lc_emb.embed_documents(embedding_texts)
@@ -188,6 +289,8 @@ class ChromaBackend(VectorStoreBackend):
                 metadatas=[doc.metadata for doc in documents],
             )
         else:
+            # Standard path: LangChain wrapper handles embedding + insert.
+            db = self._get_or_create(collection_name)
             ids = db.add_documents(documents=documents)
 
         logger.info(f"Stored {len(ids)} documents in collection '{collection_name}'")
@@ -212,6 +315,12 @@ class ChromaBackend(VectorStoreBackend):
         except Exception:
             return []
         self._validate_embedding(collection_name)
+
+        provenance = self.get_embedding_provenance(collection_name)
+        if provenance and provenance.get("embedding_strategy") == "late_chunking":
+            query_vector = self._get_lc_query_embedding(provenance["model_name"], query)
+            return self.search_by_vector(query_vector, collection_name, k)
+
         db = self._get_or_create(collection_name)
         return db.similarity_search(query, k=k)
 
@@ -232,8 +341,12 @@ class ChromaBackend(VectorStoreBackend):
 
         # Dense search via raw chromadb client to get IDs back
         collection = self._client.get_collection(collection_name)
-        lc_emb = self._embedding.get_langchain_embeddings()
-        query_embedding = lc_emb.embed_query(query)
+        provenance = self.get_embedding_provenance(collection_name)
+        if provenance and provenance.get("embedding_strategy") == "late_chunking":
+            query_embedding = self._get_lc_query_embedding(provenance["model_name"], query)
+        else:
+            lc_emb = self._embedding.get_langchain_embeddings()
+            query_embedding = lc_emb.embed_query(query)
         dense_raw = collection.query(
             query_embeddings=[query_embedding],
             n_results=k * 2,
@@ -426,6 +539,7 @@ class ChromaBackend(VectorStoreBackend):
                 return {
                     "model_name": model_name,
                     "type": meta.get(_PROVENANCE_KEY_TYPE),
+                    "embedding_strategy": meta.get(_PROVENANCE_KEY_STRATEGY, "standard"),
                 }
         except Exception:
             pass

@@ -36,6 +36,41 @@ def _load_and_split(file_path: str) -> list[Document]:
         return []
 
     settings = get_settings()
+    late_cfg = settings.chunking.late_chunking
+
+    # Late chunking: embed full document context, pool per-chunk (mutually exclusive with contextual)
+    if late_cfg.enabled and ext in late_cfg.file_types:
+        from langchain.text_splitter import RecursiveCharacterTextSplitter
+        from src.rag.late_chunking import LateChunkingEmbedder
+
+        # Pass 1: Extract full text
+        # Use \f (form-feed) as page separator so _split_into_segments("page")
+        # can recover page boundaries when the document exceeds context window.
+        no_split = RecursiveCharacterTextSplitter(chunk_size=1_000_000, chunk_overlap=0)
+        full_docs = converter.load_and_split_file(text_splitter=no_split, file_path=file_path)
+        full_text = "\f".join(doc.page_content for doc in full_docs)
+
+        # Pass 2: Split into chunks
+        chunks = converter.load_and_split_file(text_splitter=text_splitter, file_path=file_path)
+        chunks = enrich_chunk_metadata(chunks, settings.chunking.tokenizer)
+
+        # Pass 3: Late chunking embedding
+        try:
+            embedder = LateChunkingEmbedder(
+                model_name=late_cfg.model_name,
+                max_context_tokens=late_cfg.max_context_tokens,
+                pooling_strategy=late_cfg.pooling_strategy,
+                device=settings.embedding.device,
+            )
+            chunks = embedder.embed_document_chunks(
+                full_text,
+                chunks,
+                batch_by=late_cfg.batch_by,
+            )
+        except Exception as e:
+            logger.warning(f"Late chunking failed, chunks will use standard embedding: {e}")
+
+        return chunks
 
     if settings.chunking.contextual.enabled:
         from langchain.text_splitter import RecursiveCharacterTextSplitter

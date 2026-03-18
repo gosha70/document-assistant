@@ -45,12 +45,22 @@ class ContextualChunkSettings(BaseModel):
     document_summary_tokens: int = 256
 
 
+class LateChunkingSettings(BaseModel):
+    enabled: bool = False
+    model_name: str = "jinaai/jina-embeddings-v2-base-en"
+    max_context_tokens: int = 8192
+    pooling_strategy: str = "mean"
+    batch_by: str = "page"
+    file_types: list[str] = ["pdf", "md", "txt"]
+
+
 class ChunkingSettings(BaseModel):
     chunk_size: int
     chunk_overlap: int
     tokenizer: str
     batch_size: int
     contextual: ContextualChunkSettings = ContextualChunkSettings()
+    late_chunking: LateChunkingSettings = LateChunkingSettings()
 
 
 class ModelSettings(BaseModel):

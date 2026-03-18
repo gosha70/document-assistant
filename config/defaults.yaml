@@ -24,6 +24,16 @@ chunking:
     enabled: false
     max_context_tokens: 128
     document_summary_tokens: 256
+  late_chunking:
+    enabled: false
+    model_name: "jinaai/jina-embeddings-v2-base-en"
+    max_context_tokens: 8192
+    pooling_strategy: "mean"
+    batch_by: "page"
+    file_types:
+      - pdf
+      - md
+      - txt
 
 model:
   default_model_name: "hkunlp/instructor-large"
