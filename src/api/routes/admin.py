@@ -80,12 +80,12 @@ def migrate_collection(collection_name: str):
 
 
 @router.get("/collections/{collection_name}/chunks", response_model=ChunkSampleResponse)
-def sample_chunks(collection_name: str, limit: int = 10, offset: int = 0):
-    """Return a paginated sample of chunks from a collection."""
+def sample_chunks(collection_name: str, limit: int = 10):
+    """Return a sample of chunks from a collection (up to 50)."""
     limit = min(limit, 50)
     backend = get_vectorstore_backend()
     try:
-        result = backend.sample_chunks(collection_name, limit=limit, offset=offset)
+        result = backend.sample_chunks(collection_name, limit=limit)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     return ChunkSampleResponse(

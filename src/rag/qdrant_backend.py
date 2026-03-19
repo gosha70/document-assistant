@@ -743,10 +743,12 @@ class QdrantBackend(VectorStoreBackend):
         info = self._client.get_collection(collection_name)
         return self._document_count(collection_name, info.points_count)
 
-    def sample_chunks(self, collection_name: str, limit: int = 10, offset: int = 0) -> dict:
+    def sample_chunks(self, collection_name: str, limit: int = 10) -> dict:
         """Return a sample of chunks with text truncated to 500 characters.
 
         Filters out the provenance sentinel point and adjusts total_count accordingly.
+        Offset-based pagination is not supported: Qdrant scroll uses a point-ID
+        cursor, not a numeric row offset. Always samples from the beginning.
         """
         if not self._client.collection_exists(collection_name):
             raise ValueError(f"Collection '{collection_name}' not found")
@@ -759,7 +761,6 @@ class QdrantBackend(VectorStoreBackend):
         results, _next_offset = self._client.scroll(
             collection_name=collection_name,
             limit=limit + 2,
-            offset=offset,
             with_payload=True,
         )
 

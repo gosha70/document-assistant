@@ -554,7 +554,7 @@ class ChromaBackend(VectorStoreBackend):
         results = collection.get(where={"source": source_name}, include=[])
         return results.get("ids", [])
 
-    def sample_chunks(self, collection_name: str, limit: int = 10, offset: int = 0) -> dict:
+    def sample_chunks(self, collection_name: str, limit: int = 10) -> dict:
         """Return a sample of chunks with text truncated to 500 characters."""
         try:
             collection = self._client.get_collection(collection_name)
@@ -564,7 +564,6 @@ class ChromaBackend(VectorStoreBackend):
         total_count = collection.count()
         results = collection.get(
             limit=limit,
-            offset=offset,
             include=["documents", "metadatas"],
         )
 

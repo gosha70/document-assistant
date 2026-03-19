@@ -82,11 +82,14 @@ class VectorStoreBackend(ABC):
         return None
 
     @abstractmethod
-    def sample_chunks(self, collection_name: str, limit: int = 10, offset: int = 0) -> dict:
+    def sample_chunks(self, collection_name: str, limit: int = 10) -> dict:
         """Return a sample of chunks from a collection.
 
         Returns a dict with 'total_count' (int) and 'chunks' (list of dicts with
         'id', 'text', and 'metadata' keys). Text is truncated to 500 characters.
+        Offset-based pagination is intentionally omitted: Qdrant uses cursor-based
+        pagination (point-ID offsets), making a numeric 'skip N' offset
+        unimplementable uniformly across backends. This endpoint is for sampling only.
         """
 
     @abstractmethod
