@@ -16,3 +16,5 @@ dist/
 /doc_internal
 /specs
 config/local.yaml
+CLAUDE.md
+AGENTS.md
