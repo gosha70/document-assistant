@@ -36,7 +36,7 @@ huggingface-hub = "^0.24"
 sentence-transformers = "^5.3"
 InstructorEmbedding = "^1.0"
 pypdf = "^6.9"
-psutil = "^5.9"
+psutil = "^7.2"
 qdrant-client = "^1.12"
 rank-bm25 = "^0.2"
 
