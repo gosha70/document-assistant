@@ -46,7 +46,7 @@ def chat(request: ChatRequest):
 
     except Exception as e:
         logger.error(f"Chat error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/chat/stream")
@@ -95,6 +95,6 @@ def chat_stream(request: ChatRequest):
             yield "data: [DONE]\n\n"
         except Exception as e:
             logger.error(f"Stream error: {e}", exc_info=True)
-            yield f"data: {json.dumps({'type': 'error', 'detail': str(e)})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'detail': 'Internal server error'})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

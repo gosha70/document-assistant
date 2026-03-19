@@ -1,4 +1,6 @@
+import hashlib
 import logging
+from pathlib import Path
 from typing import Optional
 
 import chromadb
@@ -160,8 +162,15 @@ class ChromaBackend(VectorStoreBackend):
         from src.rag.bm25_index import BM25Index
 
         if self._persist_directory:
-            pkl_path = f"{self._persist_directory}/.bm25_{collection_name}.pkl"
-            idx = BM25Index.load(pkl_path)
+            name_hash = hashlib.sha256(collection_name.encode()).hexdigest()[:32]
+            base = Path(self._persist_directory).resolve()
+            pkl_path = base / f".bm25_{name_hash}.pkl"
+            # Guard against symlink traversal (including dangling symlinks).
+            # resolve(strict=False) follows symlinks even when the target does not
+            # yet exist, so this catches both live and dangling redirects.
+            if not pkl_path.resolve(strict=False).is_relative_to(base):
+                raise ValueError("BM25 index path resolves outside persist directory")
+            idx = BM25Index.load(str(pkl_path))
         else:
             idx = BM25Index(persist_path=None)
 
