@@ -54,6 +54,7 @@ ruff = "^0.4"
 mypy = "^1.19.1"
 types-pyyaml = "^6.0.12.20250915"
 bandit = {version = "^1.7", extras = ["toml"]}
+pytest-playwright = "^0.7.2"
 
 [tool.poetry.group.eval.dependencies]
 ragas = "^0.4"
