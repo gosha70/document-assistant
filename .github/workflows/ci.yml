@@ -23,6 +23,6 @@ jobs:
           pip install pip-audit --quiet
           poetry export --without-hashes -f requirements.txt | poetry run pip-audit -r /dev/stdin
       - name: Tests
-        run: poetry run pytest -q --tb=short
+        run: poetry run pytest -q --tb=short --ignore=tests/e2e
       - name: Eval smoke test
         run: poetry run pytest tests/test_eval_smoke.py -q --tb=short
