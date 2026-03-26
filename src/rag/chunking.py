@@ -1,6 +1,6 @@
 import logging
 import threading
-from langchain.text_splitter import Language, RecursiveCharacterTextSplitter, TextSplitter
+from langchain_text_splitters import Language, RecursiveCharacterTextSplitter, TextSplitter
 from langchain_core.documents import Document
 
 from src.config.settings import get_settings

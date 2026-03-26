@@ -40,7 +40,7 @@ def _load_and_split(file_path: str) -> list[Document]:
 
     # Late chunking: embed full document context, pool per-chunk (mutually exclusive with contextual)
     if late_cfg.enabled and ext in late_cfg.file_types:
-        from langchain.text_splitter import RecursiveCharacterTextSplitter
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
         from src.rag.late_chunking import LateChunkingEmbedder
 
         # Pass 1: Extract full text
@@ -73,7 +73,7 @@ def _load_and_split(file_path: str) -> list[Document]:
         return chunks
 
     if settings.chunking.contextual.enabled:
-        from langchain.text_splitter import RecursiveCharacterTextSplitter
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
         from src.rag.contextual import ChunkContextAugmenter
         from src.api.deps import _llm
 

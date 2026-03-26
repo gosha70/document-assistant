@@ -1,9 +1,9 @@
 # Copyright (c) EGOGE - All Rights Reserved.
 # This software may be used and distributed according to the terms of the CC-BY-SA-4.0 license.
 import os
-from typing import List
+from typing import List, Optional
 
-from langchain.text_splitter import TextSplitter
+from langchain_text_splitters import TextSplitter
 from langchain_core.documents import Document
 
 from .base_file_converter import BaseFileConverter
@@ -17,14 +17,16 @@ from .html_converter import HtmlConverter
 from .java_converter import JavaConverter
 from .json_converter import JsonConverter
 from .js_converter import JsConverter
-from .python_converter import PythonConverter     
+from .python_converter import PythonConverter
 from .rtf_converter import RtfConverter
 from .xml_converter import XmlConverter
+
 
 class DocumentSplitter:
     """
     Finds files and splits them into unstructured text.
     """
+
     def __init__(self, logging):
         self.logging = logging
         self.converters = {
@@ -43,13 +45,13 @@ class DocumentSplitter:
             FileType.TEXT: GenericConverter(file_type=FileType.TEXT, language=None, logging=logging),
             FileType.XML: XmlConverter(logging=logging),
             FileType.XSL: GenericConverter(file_type=FileType.XSL, language=None, logging=logging),
-            FileType.YAML: GenericConverter(file_type=FileType.YAML, language=None, logging=logging)
+            FileType.YAML: GenericConverter(file_type=FileType.YAML, language=None, logging=logging),
         }
-     
+
     def get_converter(self, file_type: FileType):
         """Gets the BaseFileConverter for a given FileType."""
         return self.converters.get(file_type)
-    
+
     def find_files(self, dir_path: str, file_extension: str) -> List[str]:
         """
         Finds sources corresponding the specified file type.
@@ -60,7 +62,7 @@ class DocumentSplitter:
         Returns:
         - (List[str]): files found in the specified directory
         """
-        self.logging.info(f"Loading {file_extension} ...")   
+        self.logging.info(f"Loading {file_extension} ...")
         found_files = []
         for root, _, files in os.walk(dir_path):
             for file in files:
@@ -69,20 +71,20 @@ class DocumentSplitter:
 
         self.logging.info(f"Loaded {len(found_files)} files.")
         return found_files
-    
+
     def process_file(self, file_path: str) -> List[Document]:
         """
         Processes a single file at th runtime
 
         Parameters:
-        - file_path (str): The path to file 
+        - file_path (str): The path to file
         Returns:
         - (List[Document]): the list of unstructured Documents
-        """ 
-        file_type = FileType.get_file_type_by_extension(file_name=file_path)   
-        test_splitter = BaseFileConverter.get_text_splitter(file_type=file_type) 
-        return self.load_split_file(text_splitter=test_splitter, file_type=file_type, file_path=file_path)  
-    
+        """
+        file_type = FileType.get_file_type_by_extension(file_name=file_path)
+        test_splitter = BaseFileConverter.get_text_splitter(file_type=file_type)
+        return self.load_split_file(text_splitter=test_splitter, file_type=file_type, file_path=file_path)
+
     def load_split_file(self, text_splitter: TextSplitter, file_type: FileType, file_path: str) -> List[Document]:
         """
         Reads and processes a single file
@@ -93,14 +95,16 @@ class DocumentSplitter:
         - file_path (str): The path to file
         Returns:
         - (List[Document]): the list of unstructured PDF content
-        """         
-        converter = self.get_converter(file_type)    
+        """
+        converter = self.get_converter(file_type)
         return converter.load_and_split_file(text_splitter=text_splitter, file_path=file_path)
 
-    def load_and_split(self, dir_path: str, text_splitter: TextSplitter, file_type: FileType, file_pattern: str = None) -> List[Document]:   
+    def load_and_split(
+        self, dir_path: str, text_splitter: TextSplitter, file_type: FileType, file_pattern: Optional[str] = None
+    ) -> List[Document]:
         """
-        Finds files corresponding the specified file type and optional pattern name; 
-        then loads them into unstructured documents; at the end, 
+        Finds files corresponding the specified file type and optional pattern name;
+        then loads them into unstructured documents; at the end,
         split them via the specified (TextSplitter).
 
         Parameters:
@@ -114,14 +118,11 @@ class DocumentSplitter:
         """
         converter = self.get_converter(file_type)
         # Ensure the directory path ends with '/'
-        if not dir_path.endswith('/'):
-            dir_path += '/'
-        
+        if not dir_path.endswith("/"):
+            dir_path += "/"
+
         file_name = file_pattern if file_pattern is not None else "**/*"
-        self.logging.info(f"Loading {file_type.get_extension()} with names confirming the name pattern: '{file_name}'")         
-        documents = converter.load_and_split_files(dir_path=dir_path, file_pattern=file_pattern)                
+        self.logging.info(f"Loading {file_type.get_extension()} with names confirming the name pattern: '{file_name}'")
+        documents = converter.load_and_split_files(dir_path=dir_path, file_pattern=file_pattern)
         self.logging.info(f"Loaded {len(documents)} {file_type.get_extension()} documents")
         return text_splitter.split_documents(documents)
-    
-
-    

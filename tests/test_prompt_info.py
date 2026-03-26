@@ -1,4 +1,5 @@
 """Tests for prompt_info.py — verifies bug fixes and prompt generation."""
+
 from prompt_info import PromptInfo, LLAMA_MODEL_NAME, MISTRAL_MODEL_NAME
 
 
@@ -79,7 +80,8 @@ class TestPromptTemplateGeneration:
 
     def test_memory_is_base_memory_subclass_when_history_enabled(self):
         """Memory must be a BaseMemory subclass for RetrievalQA compatibility."""
-        from langchain_core.memory import BaseMemory
+        from langchain_classic.base_memory import BaseMemory
+
         pi = PromptInfo("test", LLAMA_MODEL_NAME, True)
         prompt, memory = pi.get_prompt_template()
         assert isinstance(memory, BaseMemory)

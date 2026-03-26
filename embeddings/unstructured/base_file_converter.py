@@ -4,10 +4,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 from langchain_core.documents.base import Document
 from langchain_community.document_loaders import TextLoader
-from langchain.text_splitter import (
-    Language,
-    TextSplitter
-)
+from langchain_text_splitters import Language, TextSplitter
 from langchain_community.document_loaders.generic import GenericLoader
 from langchain_community.document_loaders.parsers import LanguageParser
 from .file_type import FileType
@@ -23,10 +20,11 @@ _FILE_TYPE_TO_EXT = {
     FileType.DDL: "ddl",
 }
 
+
 class BaseFileConverter(ABC):
     """Converts `File` to Documents"""
-  
-    def __init__(self, file_type: FileType, language: Optional[Language] =None, logging=None):
+
+    def __init__(self, file_type: FileType, language: Optional[Language] = None, logging=None):
         """Initializes BaseFileConverter with optional Language and Logging."""
         self.file_type = file_type
         self.language = language
@@ -41,9 +39,10 @@ class BaseFileConverter(ABC):
         paths (FastAPI /ingest and legacy CLI) use the same chunking strategy.
         """
         from src.rag.chunking import get_text_splitter
+
         ext = _FILE_TYPE_TO_EXT.get(file_type)
-        return get_text_splitter(ext)    
-   
+        return get_text_splitter(ext)
+
     def get_language(self) -> Language:
         """
         Gets Language associated with this Unstructured API
@@ -52,13 +51,13 @@ class BaseFileConverter(ABC):
         - Language: the language
         """
         return self.language
-    
+
     def log_info(self, message: str, **kwargs):
         if self.logging is None:
             print(message)
         else:
             self.logging.info(message)
-       
+
     def load_and_split_file(self, text_splitter: TextSplitter, file_path: str) -> List[Document]:
         """
         Reads and processes a single file
@@ -69,7 +68,7 @@ class BaseFileConverter(ABC):
         Returns:
         - (List[Document]): the list of unstructured PDF content
         """
-        return TextLoader(file_path=file_path).load_and_split(text_splitter=text_splitter)         
+        return TextLoader(file_path=file_path).load_and_split(text_splitter=text_splitter)
 
     def load_and_split_files(self, dir_path: str, file_pattern: str) -> List[Document]:
         """
@@ -82,7 +81,7 @@ class BaseFileConverter(ABC):
         Returns:
         - (List[Document]): the list of unstructured content
         """
-        
+
         if self.language is None:
             language_parser = LanguageParser(parser_threshold=2000)
         else:
@@ -94,9 +93,5 @@ class BaseFileConverter(ABC):
             suffixes=[self.file_type.get_extension()],
             parser=language_parser,
         )
-        
-        return loader.load()     
 
-    
-
-        
+        return loader.load()

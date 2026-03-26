@@ -1,12 +1,10 @@
 # Copyright (c) EGOGE - All Rights Reserved.
 # This software may be used and distributed according to the terms of the CC-BY-SA-4.0 license.
 import logging
-from langchain.chains import RetrievalQA
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFacePipeline
 from langchain_community.llms import LlamaCpp
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-from langchain.callbacks.manager import CallbackManager
+from langchain_core.callbacks import CallbackManager, StreamingStdOutCallbackHandler
 
 from transformers import (
     GenerationConfig,
@@ -20,13 +18,7 @@ from models.gguf_lm import load_gguf_model as gguf
 from models.gptq_lm import load_gptq_model as qptq
 from models.pretrained_lm import load_pretrained_model as pretrained
 
-from retrieval_constants import (
-    AWQ_EXTENSION, 
-    CACHE_DIR, 
-    CHAIN_TYPE_STUFF,
-    GGML_EXTENSION, 
-    GGUF_EXTENSION
-)
+from retrieval_constants import AWQ_EXTENSION, CACHE_DIR, CHAIN_TYPE_STUFF, GGML_EXTENSION, GGUF_EXTENSION
 
 CALLBACK_MANAGER = CallbackManager([StreamingStdOutCallbackHandler()])
 
@@ -45,11 +37,15 @@ Returns:
     
 See https://huggingface.co/docs/transformers/    
 """
+
+
 def create_model(model_info):
-    logging.info(f"Creating Model Pipeline - '{model_info.model_id}/{model_info.model_basename}' on '{model_info.device_type}'")
-       
+    logging.info(
+        f"Creating Model Pipeline - '{model_info.model_id}/{model_info.model_basename}' on '{model_info.device_type}'"
+    )
+
     if model_info.model_basename is not None:
-        lowercaseFileName = model_info.model_basename.lower() 
+        lowercaseFileName = model_info.model_basename.lower()
         if lowercaseFileName.endswith(GGUF_EXTENSION) or lowercaseFileName.endswith(GGML_EXTENSION):
             return gguf(model_info, cache_dir=CACHE_DIR)
         elif lowercaseFileName.endswith(AWQ_EXTENSION):
@@ -76,6 +72,7 @@ def create_model(model_info):
 
     return local_llm
 
+
 """
 Create the retrieval framework for the QA chat application.
 
@@ -96,11 +93,19 @@ Parameters:
 Returns:
 - RetrievalQA: the retrieval framewor
 """
+
+
 def create_retrieval_qa(model_info, prompt_info, vectorstore):
+    # Lazy import: RetrievalQA was removed in langchain 1.x,
+    # available via langchain-classic if installed.
+    try:
+        from langchain.chains import RetrievalQA
+    except ImportError:
+        from langchain_classic.chains import RetrievalQA
 
     if not isinstance(vectorstore, Chroma):
         raise TypeError("vectorstore must be of type Chroma")
-        
+
     retriever = vectorstore.as_retriever()
 
     # load the LLM
@@ -114,7 +119,7 @@ def create_retrieval_qa(model_info, prompt_info, vectorstore):
             llm=llm,
             chain_type=CHAIN_TYPE_STUFF,
             retriever=retriever,
-            return_source_documents=True, 
+            return_source_documents=True,
             callbacks=CALLBACK_MANAGER,
             chain_type_kwargs={"prompt": prompt, "memory": memory},
         )
@@ -123,7 +128,7 @@ def create_retrieval_qa(model_info, prompt_info, vectorstore):
             llm=llm,
             chain_type=CHAIN_TYPE_STUFF,
             retriever=retriever,
-            return_source_documents=True, 
+            return_source_documents=True,
             callbacks=CALLBACK_MANAGER,
             chain_type_kwargs={
                 "prompt": prompt,

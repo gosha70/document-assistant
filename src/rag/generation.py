@@ -5,7 +5,7 @@ from typing import Any, Iterator
 import yaml
 from pathlib import Path
 from langchain_core.documents import Document
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 
 from src.config.settings import get_settings
 from src.rag.context_firewall import sanitize_document_text

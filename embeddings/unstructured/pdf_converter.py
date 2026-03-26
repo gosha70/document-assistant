@@ -4,7 +4,7 @@ import glob
 from typing import List
 from langchain_core.documents.base import Document
 from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import TextSplitter
+from langchain_text_splitters import TextSplitter
 
 from .base_file_converter import BaseFileConverter
 from .file_type import FileType
@@ -12,11 +12,10 @@ from .file_type import FileType
 
 class PdfConverter(BaseFileConverter):
     """Convert `PDF` to Documents"""
-    
+
     def __init__(self, logging=None):
         super().__init__(file_type=FileType.PDF, language=None, logging=logging)
-           
-        
+
     def load_and_split_file(self, text_splitter: TextSplitter, file_path: str) -> List[Document]:
         """
         Reads and processes a single PDF file
@@ -42,7 +41,7 @@ class PdfConverter(BaseFileConverter):
         Returns:
         - (List[Document]): the list of unstructured content
         """
-        files = glob.glob(f'{dir_path}{file_pattern}.pdf', recursive=True)
+        files = glob.glob(f"{dir_path}{file_pattern}.pdf", recursive=True)
         loaded_docs = []
         for file_path in files:
             pages = PyPDFLoader(file_path).load()
@@ -50,5 +49,3 @@ class PdfConverter(BaseFileConverter):
             loaded_docs.extend(pages)
 
         return loaded_docs
-
-        
