@@ -45,7 +45,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if path in PUBLIC_PATHS or path.rstrip("/") in PUBLIC_PATHS:
             return await call_next(request)
 
-        token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            token = ""
+        else:
+            token = auth_header.removeprefix("Bearer ").strip()
 
         # Admin routes require admin token
         if path.startswith(ADMIN_PATH_PREFIX):
