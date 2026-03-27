@@ -47,7 +47,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
-            token = ""
+            token = None
         else:
             token = auth_header.removeprefix("Bearer ").strip()
 
