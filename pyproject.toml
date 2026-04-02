@@ -32,7 +32,7 @@ torch = [
     {version = ">=2.8.0", python = "<3.14"},
     {version = ">=2.2.2", python = ">=3.14"},
 ]
-dash = "^4.0"
+dash = "^4.1"
 dash-bootstrap-components = "^1.6"
 watchdog = "^6.0"
 transformers = "^4.53"
