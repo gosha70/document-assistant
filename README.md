@@ -531,8 +531,8 @@ static/
 ├── index.html                # Chat UI
 └── admin.html                # Admin Console
 tests/
-├── test_*.py                 # Unit + integration tests (422)
-└── e2e/                      # Playwright browser tests (13)
+├── test_*.py                 # Unit + integration tests (436)
+└── e2e/                      # Playwright browser tests (16)
 docs/
 ├── architecture.md           # System design and data-flow diagrams
 └── adr/                      # Architecture Decision Records
