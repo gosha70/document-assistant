@@ -807,14 +807,14 @@ files = [
 
 [[package]]
 name = "dash"
-version = "4.0.0"
+version = "4.1.0"
 description = "A Python framework for building reactive web-apps. Developed by Plotly."
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "dash-4.0.0-py3-none-any.whl", hash = "sha256:e36b4b4eae9e1fa4136bf4f1450ed14ef76063bc5da0b10f8ab07bd57a7cb1ab"},
-    {file = "dash-4.0.0.tar.gz", hash = "sha256:c5f2bca497af288f552aea3ae208f6a0cca472559003dac84ac21187a1c3a142"},
+    {file = "dash-4.1.0-py3-none-any.whl", hash = "sha256:1af9f302bc14061061012cdb129b7e370d3604b12a7f730b252ad8e4966f01f7"},
+    {file = "dash-4.1.0.tar.gz", hash = "sha256:17a92a87b0c1eacc025079a705e44e72cd4c5794629c0a2909942b611faeb595"},
 ]
 
 [package.dependencies]
@@ -8035,4 +8035,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "c5f616d4ec461918e32d5176be1569cb6283503d3695fda0112374208879a377"
+content-hash = "b26cd9d261003067eed6da4fda961e3dac39ca03a4c339fc690379c72155298f"
