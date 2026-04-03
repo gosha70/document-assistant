@@ -8,7 +8,7 @@ license = "CC-BY-SA-4.0"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">=3.11,<3.14"
 langchain = "^1.2.0"
 langchain-community = "^0.4.0"
 langchain-core = "^1.2.11"
@@ -28,10 +28,7 @@ python-dotenv = "^1.0.0"
 colorama = "^0.4.6"
 tqdm = "^4.66.4"
 tiktoken = ">=0.8.0"
-torch = [
-    {version = ">=2.8.0", python = "<3.14"},
-    {version = ">=2.2.2", python = ">=3.14"},
-]
+torch = ">=2.8.0"
 dash = "^4.1"
 dash-bootstrap-components = "^1.6"
 watchdog = "^6.0"
