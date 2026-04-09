@@ -59,7 +59,7 @@ pytest-playwright = "^0.7.2"
 
 [tool.poetry.group.eval.dependencies]
 ragas = "^0.4"
-deepeval = "^3.0"
+deepeval = "^3.9"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
