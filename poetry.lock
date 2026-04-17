@@ -2206,14 +2206,14 @@ tenacity = ">=8.1.0,<8.4.0 || >8.4.0,<10.0.0"
 
 [[package]]
 name = "langchain-core"
-version = "1.2.28"
+version = "1.2.30"
 description = "Building applications with LLMs through composability"
 optional = false
 python-versions = "<4.0.0,>=3.10.0"
 groups = ["main", "eval"]
 files = [
-    {file = "langchain_core-1.2.28-py3-none-any.whl", hash = "sha256:80764232581eaf8057bcefa71dbf8adc1f6a28d257ebd8b95ba9b8b452e8c6ac"},
-    {file = "langchain_core-1.2.28.tar.gz", hash = "sha256:271a3d8bd618f795fdeba112b0753980457fc90537c46a0c11998516a74dc2cb"},
+    {file = "langchain_core-1.2.30-py3-none-any.whl", hash = "sha256:26fa50894449b29b31b3712fa4975db679d26abe8241a966ea2c5978b68d8394"},
+    {file = "langchain_core-1.2.30.tar.gz", hash = "sha256:ee6c6b3476215c4be438231bab7003d880359230b9fdf1f65e0ffa1bde8a58e0"},
 ]
 
 [package.dependencies]
