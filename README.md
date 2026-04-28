@@ -31,45 +31,45 @@ A **Retrieval-Augmented Generation (RAG)** framework with a FastAPI backend, a b
 ```mermaid
 graph TB
     subgraph Clients
-        CUI[Chat UI<br/>index.html]
-        AUI[Admin Console<br/>admin.html]
-        API[REST Client /<br/>Swagger UI]
+        CUI["Chat UI · index.html"]
+        AUI["Admin Console · admin.html"]
+        API["REST Client · Swagger UI"]
     end
 
-    subgraph FastAPI["FastAPI  (src/api/)"]
-        MW[Middleware Stack<br/>Auth · RateLimit · Telemetry]
-        IR[/ingest]
-        CR[/chat<br/>/chat/stream]
-        SR[/study]
-        AR[/admin]
-        ST[/status · /health]
+    subgraph FastAPI["FastAPI · src/api/"]
+        MW["Middleware: Auth · RateLimit · Telemetry"]
+        IR["/ingest"]
+        CR["/chat · /chat/stream"]
+        SR["/study"]
+        AR["/admin"]
+        ST["/status · /health"]
     end
 
-    subgraph Pipeline["Query Pipeline  (src/rag/)"]
-        OR[QueryOrchestrator]
-        QD[Query Decomposition]
-        HY[HyDE]
-        RT[Retriever<br/>Hybrid Search + Rerank]
-        CR2[Corrective Retrieval]
-        GN[Generator<br/>Prompt Templates]
-        VF[Answer Verification]
+    subgraph Pipeline["Query Pipeline · src/rag/"]
+        OR["QueryOrchestrator"]
+        QD["Query Decomposition"]
+        HY["HyDE"]
+        RT["Retriever: Hybrid Search + Rerank"]
+        CR2["Corrective Retrieval"]
+        GN["Generator: Prompt Templates"]
+        VF["Answer Verification"]
     end
 
-    subgraph Ingest["Ingestion Pipeline  (embeddings/)"]
-        FC[File Converters<br/>17 types]
-        CK[Chunker<br/>Standard / Late / Contextual]
-        EM[Embedding Adapter<br/>Instructor / HuggingFace]
+    subgraph Ingest["Ingestion Pipeline · embeddings/"]
+        FC["File Converters · 17 types"]
+        CK["Chunker: Standard / Late / Contextual"]
+        EM["Embedding Adapter: Instructor / HuggingFace"]
     end
 
-    subgraph Backends["Vector Store Backends  (src/rag/)"]
-        CH[ChromaBackend<br/>dev · local]
-        QD2[QdrantBackend<br/>production]
+    subgraph Backends["Vector Store Backends · src/rag/"]
+        CH["ChromaBackend · dev / local"]
+        QD2["QdrantBackend · production"]
     end
 
     subgraph LLM["LLM Backends"]
-        OL[Ollama]
-        OA[OpenAI-compatible]
-        LG[Legacy GGUF/GPTQ]
+        OL["Ollama"]
+        OA["OpenAI-compatible"]
+        LG["Legacy GGUF/GPTQ"]
     end
 
     CUI & AUI & API --> MW
