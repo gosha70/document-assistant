@@ -5924,33 +5924,35 @@ test = ["Cython", "array-api-strict (>=2.3.1)", "asv", "gmpy2", "hypothesis (>=6
 
 [[package]]
 name = "sentence-transformers"
-version = "5.3.0"
+version = "5.4.1"
 description = "Embeddings, Retrieval, and Reranking"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "sentence_transformers-5.3.0-py3-none-any.whl", hash = "sha256:dca6b98db790274a68185d27a65801b58b4caf653a4e556b5f62827509347c7d"},
-    {file = "sentence_transformers-5.3.0.tar.gz", hash = "sha256:414a0a881f53a4df0e6cbace75f823bfcb6b94d674c42a384b498959b7c065e2"},
+    {file = "sentence_transformers-5.4.1-py3-none-any.whl", hash = "sha256:a6d640fc363849b63affb8e140e9d328feabab86f83d58ac3e16b1c28140b790"},
+    {file = "sentence_transformers-5.4.1.tar.gz", hash = "sha256:436bcb1182a0ff42a8fb2b1c43498a70d0a75b688d182f2cd0d1dd115af61ddc"},
 ]
 
 [package.dependencies]
-huggingface-hub = ">=0.20.0"
-numpy = "*"
-scikit-learn = "*"
-scipy = "*"
+huggingface-hub = ">=0.23.0"
+numpy = ">=1.20.0"
+scikit-learn = ">=0.22.0"
+scipy = ">=1.0.0"
 torch = ">=1.11.0"
-tqdm = "*"
+tqdm = ">=4.0.0"
 transformers = ">=4.41.0,<6.0.0"
 typing_extensions = ">=4.5.0"
 
 [package.extras]
-dev = ["Pillow", "accelerate (>=0.20.3)", "datasets", "peft", "pre-commit", "pytest", "pytest-cov", "pytest-env"]
-image = ["Pillow"]
+audio = ["transformers[audio]"]
+dev = ["accelerate (>=0.20.3)", "datasets (>=2.0.0)", "peft", "pre-commit", "pytest", "pytest-cov", "pytest-env", "pytest-subtests", "pytest-xdist", "transformers[audio,video,vision]"]
+image = ["transformers[vision]"]
 onnx = ["optimum-onnx[onnxruntime]"]
 onnx-gpu = ["optimum-onnx[onnxruntime-gpu]"]
 openvino = ["optimum-intel[openvino]"]
-train = ["accelerate (>=0.20.3)", "datasets"]
+train = ["accelerate (>=0.20.3)", "datasets (>=2.0.0)"]
+video = ["transformers[video]"]
 
 [[package]]
 name = "sentry-sdk"
