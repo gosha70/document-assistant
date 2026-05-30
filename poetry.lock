@@ -2282,19 +2282,19 @@ uuid-utils = ">=0.12.0,<1.0"
 
 [[package]]
 name = "langchain-huggingface"
-version = "1.2.1"
+version = "1.2.2"
 description = "An integration package connecting Hugging Face and LangChain."
 optional = false
 python-versions = "<4.0.0,>=3.10.0"
 groups = ["main"]
 files = [
-    {file = "langchain_huggingface-1.2.1-py3-none-any.whl", hash = "sha256:0930c216a457d2c8dc7b39a756c39c567f1d88593bfee2c3441f3ae718435f0f"},
-    {file = "langchain_huggingface-1.2.1.tar.gz", hash = "sha256:33d52a30a56775380c6b4321b78136a410eb079132a80fe7120ddd4b954b4efa"},
+    {file = "langchain_huggingface-1.2.2-py3-none-any.whl", hash = "sha256:f94944b0c0d5afc687568d426c87ed5236907464c41e72108ed76eee1a690f6d"},
+    {file = "langchain_huggingface-1.2.2.tar.gz", hash = "sha256:1dd91ec415190d2704e93ec149618e3145075863ba37e74afc9080d685dc2743"},
 ]
 
 [package.dependencies]
 huggingface-hub = ">=0.33.4,<2.0.0"
-langchain-core = ">=1.2.11,<2.0.0"
+langchain-core = ">=1.2.31,<2.0.0"
 tokenizers = ">=0.19.1,<1.0.0"
 
 [package.extras]
