@@ -76,6 +76,10 @@ filterwarnings = [
 target-version = "py311"
 line-length = 120
 
+[tool.ruff.lint]
+# Pin the pre-0.16 default rule set; ruff 0.16 expanded the defaults from 59 to 413 rules.
+select = ["E4", "E7", "E9", "F"]
+
 [tool.mypy]
 python_version = "3.11"
 ignore_missing_imports = true
