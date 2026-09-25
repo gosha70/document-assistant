@@ -103,6 +103,8 @@ def _create_embedding(settings):
 
         return InstructorEmbeddingAdapter(
             model_name=settings.embedding.model_name,
+            embed_instruction=settings.embedding.embed_instruction,
+            query_instruction=settings.embedding.query_instruction,
             device=settings.embedding.device,
             normalize_embeddings=settings.embedding.normalize_embeddings,
         )
@@ -288,7 +290,7 @@ def run_retrieval_eval(
             hit = any(any(d in t or t in d for d in distractors) for t in retrieved_texts[:k])
             if not hit:
                 negative_rejected += 1
-            logger.debug(f"  [{i+1}/{len(samples)}] negative — rejected={not hit}")
+            logger.debug(f"  [{i + 1}/{len(samples)}] negative — rejected={not hit}")
         else:
             relevant = sample.get("contexts", [])
             r = _recall_at_k(retrieved_texts, relevant, k)
@@ -299,7 +301,7 @@ def run_retrieval_eval(
             precisions.append(p)
             mrrs.append(m)
 
-            logger.debug(f"  [{i+1}/{len(samples)}] recall@{k}={r:.2f} precision@{k}={p:.2f} mrr={m:.2f}")
+            logger.debug(f"  [{i + 1}/{len(samples)}] recall@{k}={r:.2f} precision@{k}={p:.2f} mrr={m:.2f}")
 
     result: dict[str, Any] = {
         f"recall@{k}": sum(recalls) / len(recalls) if recalls else 0,

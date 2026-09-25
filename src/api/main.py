@@ -27,6 +27,8 @@ def _create_embedding(settings):
 
         return InstructorEmbeddingAdapter(
             model_name=settings.embedding.model_name,
+            embed_instruction=settings.embedding.embed_instruction,
+            query_instruction=settings.embedding.query_instruction,
             device=settings.embedding.device,
             normalize_embeddings=settings.embedding.normalize_embeddings,
         )

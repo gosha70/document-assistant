@@ -31,6 +31,8 @@ class EmbeddingSettings(BaseModel):
     type: str
     device: str
     normalize_embeddings: bool
+    embed_instruction: str
+    query_instruction: str
 
 
 class RerankerSettings(BaseModel):
