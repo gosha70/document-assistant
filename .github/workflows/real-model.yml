@@ -9,8 +9,17 @@ name: Real model validation
 # Relevance is decided inside the job: unrelated PRs finish green without downloading the model,
 # while a PR touching the dependencies or the embedding implementation must run the real-model
 # test, whose failures fail this job.
+#
+# It also runs on pushes to `main`, which is what keeps the Hugging Face cache usable: Actions
+# caches written by a PR run are not readable from other PR branches, only from the base branch.
+# Without a `main` run, every relevant PR re-downloaded the ~1.3 GB model (observed on #85:
+# "Cache not found for input keys: hf-instructor-large-..."). Push runs have no PR context, so
+# the detection step below returns relevant=true and they always provision the model, populating
+# the base-branch cache that later PRs restore from. They double as a post-merge safety net.
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -36,9 +45,10 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${BASE_REF:-}" ]; then
-            # workflow_dispatch and other non-PR events always run the full check
+            # push-to-main and workflow_dispatch have no PR context: always run the full
+            # check, so the model is provisioned and the base-branch cache is populated.
             echo "relevant=true" >> "$GITHUB_OUTPUT"
-            echo "No PR context; running the real-model test."
+            echo "No PR context (push or manual run); running the real-model test."
             exit 0
           fi
           changed=$(git diff --name-only "$BASE_REF" "$HEAD_REF")
