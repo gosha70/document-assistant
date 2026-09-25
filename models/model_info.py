@@ -1,14 +1,12 @@
-
 # Copyright (c) EGOGE - All Rights Reserved.
 # This software may be used and distributed according to the terms of the CC-BY-SA-4.0 license.
-from langchain_community.embeddings import HuggingFaceInstructEmbeddings
 from .models_constants import (
-    DEFAULT_MODEL_BASENAME, 
+    DEFAULT_MODEL_BASENAME,
     DEFAULT_MODEL_ID,
-    DEFAULT_MODEL_NAME, 
+    DEFAULT_MODEL_NAME,
     DEVICE_TYPE_CPU,
     EMBEDDING_KWARGS,
-    ENCODE_KWARG
+    ENCODE_KWARG,
 )
 
 """
@@ -20,12 +18,14 @@ ModelInfo class defines the setting for creating and training LLM used in the re
 
 See: https://huggingface.co/docs/transformers/model_doc/auto    
 """
+
+
 class ModelInfo:
     def __init__(self):
         self._model_name = DEFAULT_MODEL_NAME
         self._model_id = DEFAULT_MODEL_ID
         self._model_basename = DEFAULT_MODEL_BASENAME
-        self._device_type = DEVICE_TYPE_CPU # the type of device where the model runs: 'cpu', 'cuda'
+        self._device_type = DEVICE_TYPE_CPU  # the type of device where the model runs: 'cpu', 'cuda'
 
     @property
     def model_name(self):
@@ -60,19 +60,38 @@ class ModelInfo:
         self._device_type = value
 
     def __str__(self):
-        return (f"ModelInfo(model_name='{self._model_name}', "
-                f"model_id='{self._model_id}', "
-                f"model_basename='{self._model_basename}', "
-                f"device_type='{self._device_type}')")    
-    
-    def create_embedding(model_name):
-        if model_name is None:
-            model_name = DEFAULT_MODEL_NAME
-        return HuggingFaceInstructEmbeddings(
-            model_name=model_name,
-            model_kwargs=EMBEDDING_KWARGS,
-            encode_kwargs=ENCODE_KWARG
+        return (
+            f"ModelInfo(model_name='{self._model_name}', "
+            f"model_id='{self._model_id}', "
+            f"model_basename='{self._model_basename}', "
+            f"device_type='{self._device_type}')"
         )
 
+    @staticmethod
+    def create_embedding(model_name):
+        """Create the LangChain embeddings object used by the legacy ingestion/chat paths.
+
+        Returns a LangChain `Embeddings` instance (not the adapter), because callers
+        pass the result straight to LangChain.
+        """
+        from src.config.settings import get_settings
+        from src.rag.embeddings import InstructorEmbeddingAdapter
+
+        if model_name is None:
+            model_name = DEFAULT_MODEL_NAME
+        embedding_settings = get_settings().embedding
+        adapter = InstructorEmbeddingAdapter(
+            model_name=model_name,
+            embed_instruction=embedding_settings.embed_instruction,
+            query_instruction=embedding_settings.query_instruction,
+            device=EMBEDDING_KWARGS.get("device", DEVICE_TYPE_CPU),
+            normalize_embeddings=ENCODE_KWARG.get("normalize_embeddings", True),
+        )
+        return adapter.get_langchain_embeddings()
+
+    @staticmethod
     def embedding_class():
-        return "langchain_community.embeddings.HuggingFaceInstructEmbeddings"   
+        """Class path of the implementation `create_embedding` returns (written to new manifests)."""
+        from src.rag.embeddings import InstructorLangChainEmbeddings
+
+        return f"{InstructorLangChainEmbeddings.__module__}.{InstructorLangChainEmbeddings.__qualname__}"

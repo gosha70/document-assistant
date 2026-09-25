@@ -9,6 +9,10 @@ embedding:
   type: "instructor"
   device: "cpu"
   normalize_embeddings: true
+  # Instruction prefixes for Instructor models. These strings are part of the
+  # embedding contract: changing them invalidates existing collections.
+  embed_instruction: "Represent the document for retrieval: "
+  query_instruction: "Represent the question for retrieving supporting documents: "
 
 reranker:
   enabled: true

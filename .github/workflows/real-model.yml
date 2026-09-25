@@ -1,0 +1,89 @@
+name: Real model validation
+
+# The unit suite mocks SentenceTransformer/CrossEncoder, so a breaking change in
+# sentence-transformers (e.g. 5.4.0 removing SentenceTransformer._text_length) passes
+# CI while every real embedding call fails. This job loads the real Instructor model.
+#
+# Runs on every pull request so the `real-model` check is always reported (a paths-filtered
+# workflow never reports on unrelated PRs, which would block them if the check were required).
+# Relevance is decided inside the job: unrelated PRs finish green without downloading the model,
+# while a PR touching the dependencies or the embedding implementation must run the real-model
+# test, whose failures fail this job.
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Paths whose change requires the real-model test. Extended regex, matched against
+  # the PR's changed files.
+  RELEVANT_PATHS: '^(poetry\.lock|pyproject\.toml|config/defaults\.yaml|src/rag/embeddings\.py|src/config/settings\.py|src/api/main\.py|eval/run_eval\.py|models/model_info\.py|models/models_constants\.py|tests/test_instructor_embeddings\.py|\.github/workflows/real-model\.yml)$'
+
+jobs:
+  real-model:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Detect relevant changes
+        id: changes
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BASE_REF:-}" ]; then
+            # workflow_dispatch and other non-PR events always run the full check
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+            echo "No PR context; running the real-model test."
+            exit 0
+          fi
+          changed=$(git diff --name-only "$BASE_REF" "$HEAD_REF")
+          echo "Changed files:"
+          echo "$changed" | sed 's/^/  /'
+          if echo "$changed" | grep -Eq "$RELEVANT_PATHS"; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+            echo "Relevant paths changed; the real-model test is mandatory for this PR."
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            echo "No relevant paths changed; skipping the model download."
+          fi
+      - uses: actions/setup-python@v6
+        if: steps.changes.outputs.relevant == 'true'
+        with:
+          python-version: "3.11"
+      - name: Install Poetry
+        if: steps.changes.outputs.relevant == 'true'
+        run: pipx install poetry
+      - name: Install dependencies
+        if: steps.changes.outputs.relevant == 'true'
+        run: poetry install --no-interaction
+      - name: Cache Hugging Face models
+        if: steps.changes.outputs.relevant == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-instructor-large-${{ hashFiles('config/defaults.yaml') }}
+          restore-keys: hf-instructor-large-
+      - name: Provision embedding model
+        if: steps.changes.outputs.relevant == 'true'
+        run: |
+          poetry run python - <<'PY'
+          from huggingface_hub import snapshot_download
+
+          from src.config.settings import get_settings
+
+          # No allow_patterns: this model ships pytorch_model.bin (not safetensors), and a
+          # partial snapshot would leave the weights to be re-downloaded on every run.
+          model_name = get_settings().embedding.model_name
+          path = snapshot_download(model_name)
+          print(f"provisioned {model_name} -> {path}")
+          PY
+      - name: Real-model embedding tests (skips not allowed)
+        if: steps.changes.outputs.relevant == 'true'
+        env:
+          REQUIRE_REAL_EMBEDDING_MODEL: "1"
+        run: poetry run pytest tests/test_instructor_embeddings.py -q --tb=short
