@@ -61,7 +61,7 @@ jobs:
             echo "relevant=false" >> "$GITHUB_OUTPUT"
             echo "No relevant paths changed; skipping the model download."
           fi
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         if: steps.changes.outputs.relevant == 'true'
         with:
           python-version: "3.11"
@@ -73,7 +73,7 @@ jobs:
         run: poetry install --no-interaction
       - name: Cache Hugging Face models
         if: steps.changes.outputs.relevant == 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/huggingface
           key: hf-instructor-large-${{ hashFiles('config/defaults.yaml') }}
