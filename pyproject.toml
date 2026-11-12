@@ -29,7 +29,7 @@ python-dotenv = "^1.0.0"
 colorama = "^0.4.6"
 tqdm = "^4.66.4"
 tiktoken = ">=0.8.0"
-torch = ">=2.13.0"
+torch = ">=2.15.0"
 dash = "^4.1"
 dash-bootstrap-components = ">=1.6,<3.0"
 watchdog = "^6.0"
@@ -47,8 +47,12 @@ idna = ">=3.15"
 [tool.poetry.group.legacy.dependencies]
 llama-cpp-python = "^0.3.0"
 faiss-cpu = "^1.8.0"
-torchvision = ">=0.17.2"
-torchaudio = ">=2.2.2"
+# torchvision/torchaudio ship CUDA-tagged Linux wheels (+cu13x) and validate the tag
+# against torch at import time. Their metadata declares no torch pin, so the floors here
+# must be raised together with `torch` above: cu132 == torch 2.15.x / torchvision 0.29.2 /
+# torchaudio 2.11.1. tests/test_torch_stack.py fails loudly if they drift apart.
+torchvision = ">=0.29.2"
+torchaudio = ">=2.11.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.3"
