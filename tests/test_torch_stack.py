@@ -50,12 +50,15 @@ def _cuda_tag(version: str | None) -> str | None:
 
 
 def _torch_cuda_version() -> str | None:
-    """torch's CUDA version (e.g. '13.2'), read from torch/version.py."""
-    path = _version_file("torch")
-    if path is None:
-        return None
-    match = re.search(r"""^cuda\s*=\s*['"]?([0-9.]+)['"]?""", path.read_text(), re.M)
-    return match.group(1) if match else None
+    """torch's CUDA version (e.g. '13.2'), or None for a CPU-only build.
+
+    Imported rather than parsed: torch itself imports cleanly (torchaudio is the package
+    that raises), and ``torch/version.py`` writes the value as an annotated assignment
+    (``cuda: Optional[str] = '13.2'``) that is easy to misparse.
+    """
+    import torch  # noqa: PLC0415 - kept local so collection does not pay the import
+
+    return torch.version.cuda
 
 
 def _expected_tag(cuda_version: str) -> str:
