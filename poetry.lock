@@ -939,14 +939,14 @@ tileiras = ["nvidia-cuda-nvcc (==13.2.86.*) ; sys_platform == \"linux\" and (pla
 
 [[package]]
 name = "dash"
-version = "4.4.1"
+version = "4.5.0"
 description = "A Python framework for building reactive web-apps. Developed by Plotly."
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "dash-4.4.1-py3-none-any.whl", hash = "sha256:72120a91b10ee4d73f9446efd5d6a4ec218086feed7b1b479d2259844d1f658f"},
-    {file = "dash-4.4.1.tar.gz", hash = "sha256:9356ca7856bc496c12c5b6de5978aaf783e090d07450ee395ade1c0c2cbdf816"},
+    {file = "dash-4.5.0-py3-none-any.whl", hash = "sha256:d50a0900c2ce9e5f43f484d6966acc3ecbddcfd54df727311e34a0b7d3da2129"},
+    {file = "dash-4.5.0.tar.gz", hash = "sha256:950964e22c21485edc50c36d5c139d95316d94b11348ea3e77f99acc2456b43d"},
 ]
 
 [package.dependencies]
@@ -966,15 +966,17 @@ Werkzeug = "<3.2"
 [package.extras]
 ag-grid = ["dash-ag-grid"]
 async = ["flask[async]"]
-celery = ["celery[redis] (>=5.1.2,<5.4.0)", "kombu (<5.4.0)", "redis (>=3.5.3,<=5.0.4)"]
-ci = ["black (==22.3.0)", "flake8 (==7.0.0)", "flaky (==3.8.1)", "flask-talisman (==1.0.0)", "ipython (<9.0.0)", "jupyterlab (<4.0.0)", "mimesis (<=11.1.0)", "mock (==4.0.3)", "mypy (==1.15.0) ; python_version >= \"3.12\"", "numpy (<=1.26.3)", "openpyxl", "orjson (>=3.10.11)", "pandas (>=1.4.0)", "pyarrow", "pylint (==3.0.3)", "pyright (==1.1.398) ; python_version >= \"3.7\"", "pytest-mock", "pytest-rerunfailures", "pytest-split", "pytest-sugar (==1.1.1)", "pyzmq (>=26.0.0)", "xlrd (>=2.0.1)"]
+celery = ["celery[redis] (>=5.1.2,<5.7.0)", "kombu (<5.7.0)", "redis (>=3.5.3,<=8.1.0)"]
+ci = ["black (==22.3.0)", "flake8 (==7.3.0)", "flaky (==3.8.1)", "flask-talisman (==1.1.0)", "httpx", "ipython (<9.0.0)", "jupyterlab (<4.0.0)", "mimesis (<=11.1.0) ; python_version < \"3.10\"", "mimesis (<=22.2.0) ; python_version >= \"3.10\"", "mock (==5.2.0)", "msgspec", "mypy (==1.15.0) ; python_version >= \"3.12\"", "numpy (<=2.5.4)", "openpyxl", "orjson (>=3.10.11)", "pandas (>=1.4.0)", "pyarrow", "pylint (==3.0.3)", "pyright (==1.1.414) ; python_version >= \"3.7\"", "pytest-mock", "pytest-rerunfailures", "pytest-split", "pytest-sugar (==1.1.1)", "pytest-timeout", "pyzmq (>=26.0.0)", "xlrd (>=2.0.1)"]
 cloud = ["plotly-cloud"]
 compress = ["flask-compress"]
 dev = ["PyYAML (>=5.4.1)", "coloredlogs (>=15.0.1)", "fire (>=0.4.0)"]
-diskcache = ["diskcache (>=5.2.1)", "multiprocess (>=0.70.12)", "psutil (>=5.8.0)"]
+diskcache = ["diskcache (>=5.2.1)", "msgspec", "multiprocess (>=0.70.12)", "psutil (>=5.8.0)"]
 fastapi = ["fastapi", "uvicorn[standard]"]
 quart = ["quart"]
-testing = ["beautifulsoup4 (>=4.8.2)", "cryptography", "dash_testing_stub (>=0.0.2)", "lxml (>=4.6.2)", "multiprocess (>=0.70.12)", "percy-python-selenium (>=1.0.0)", "psutil (>=5.8.0)", "pytest (>=6.0.2)", "requests[security] (>=2.21.0)", "selenium (>=3.141.0,<=4.2.0)", "waitress (>=1.4.4)"]
+redis = ["msgspec", "redis (>=3.5.3,<=8.1.0)"]
+shared-storage = ["msgspec"]
+testing = ["beautifulsoup4 (>=4.8.2)", "cryptography", "dash_testing_stub (>=0.0.2)", "lxml (>=4.6.2)", "multiprocess (>=0.70.12)", "percy-python-selenium (>=1.0.0)", "psutil (>=5.8.0)", "pytest (>=6.0.2)", "requests[security] (>=2.21.0)", "selenium (>=4.11.0,<=4.51.0)", "waitress (>=1.4.4)"]
 
 [[package]]
 name = "dash-bootstrap-components"
