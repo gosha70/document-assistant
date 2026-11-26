@@ -1,0 +1,46 @@
+name: DeepSeek review
+
+# Advisory second-opinion review on every pull request, posted as one sticky
+# comment that is rewritten on each push.
+#
+# Advisory on purpose: the job exits 0 whatever the verdict, so it never gates a
+# merge. Making it blocking is a branch-protection decision, not a code change —
+# and note this workflow is NOT path-filtered, so its check reports on every PR
+# and would be safe to require (see real-model.yml for why that matters).
+#
+# Fork PRs receive no secrets, so DEEPSEEK_API_KEY is empty there and the script
+# skips cleanly rather than failing.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  # One review per PR: a new push supersedes the review of the previous head.
+  group: deepseek-review-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deepseek-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Review the diff
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DEEPSEEK_MODEL: deepseek-v4-pro
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python .github/scripts/deepseek_review.py
